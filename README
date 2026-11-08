@@ -1,0 +1,14 @@
+# Ring Attention with MPI
+
+## first time config
+
+```bash
+cmake -S . -B build
+```
+
+## build the project
+
+```bash
+cmake --build build
+./build/ring_attention_mpi
+```
