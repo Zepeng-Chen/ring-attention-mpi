@@ -1,0 +1,215 @@
+{
+ "cluster": "vanda",
+ "note": "Every run directory under results/hpc/vanda is either selected for the report or excluded with a reason. scripts/results_io.py reads only selected runs; scripts/audit_results.py checks them.",
+ "runs": {
+  "e0-align": "e0-align-20261110T170343Z",
+  "e1-serial": "e1-serial-20261110T170345Z",
+  "e1-extras": "e1-extras-20261110T170353Z",
+  "e2-strong": "e2-strong-20261110T170339Z",
+  "e2-strongx": "v2-multi-20261110T173727Z",
+  "e3-single": "e3-single-20261110T170341Z",
+  "e3-multi": "v2-multi-20261110T173727Z",
+  "e5-model": "v1-single-20261110T173725Z",
+  "e7-hardware": "e7-hardware-20261110T170347Z",
+  "e7-memory": "e7-memory-20261110T170349Z",
+  "real-data": "v1-single-20261110T173725Z",
+  "real-e11": "real-e11-20261110T155620Z",
+  "gpu-ladder": "gpu-ladder-20261110T154830Z",
+  "gpu-ringcheck": "gpu-ringcheck-20261110T173729Z",
+  "gpu-ring-1node": "gpu-ring-1node-20261110T173731Z",
+  "gpu-ring-2node": "gpu-ring-2node-20261111T000513Z",
+  "unit-tests": "unit-tests-20261111T031309Z",
+  "e5-fatcheck": "e5-fatcheck-20261111T001928Z",
+  "gpu-validate": "gpu-validate-20261110T152555Z",
+  "e8-clock": "e8-clock-20261111T031305Z"
+ },
+ "measures": {
+  "e0-align": "buffer alignment 16/64/4096 bytes: serial time, hardware counters, efficiency at P <= 8",
+  "e1-serial": "serial scaling in N and d, kernel ladder, tile sizes, vector width, error study",
+  "e1-extras": "clock ramp of a short run; S1 against one rank of M0 and M2",
+  "e2-strong": "strong scaling, 1 to 72 cores (one node)",
+  "e2-strongx": "strong scaling, 72 to 288 cores (four nodes), with its own serial baseline",
+  "e3-single": "weak scaling, ranks x threads, causal mask, GQA: configurations up to 72 cores",
+  "e3-multi": "the same at 288 cores; microbenchmark, few rows per rank, traces, placement",
+  "e5-model": "few rows per rank inside one node: thin ranks, 18-thread ranks, two-rank microbenchmark",
+  "e7-hardware": "no-communication control from 1 to 72 ranks with sampled clock frequency",
+  "e7-memory": "peak memory of all-gather, ring and one-sided variants",
+  "real-data": "real tensors: validation against fp64 and PyTorch, all variants, GQA against control",
+  "real-e11": "real tensors: attention statistics and window approximations (fp64 analysis)",
+  "gpu-ladder": "one GPU: kernels K0, K1, K2, causal mask, real tensors",
+  "gpu-ringcheck": "MPI+CUDA ring, two ranks sharing one GPU: correctness only",
+  "gpu-ring-1node": "MPI+CUDA ring, two GPUs in one node",
+  "gpu-ring-2node": "MPI+CUDA ring, one GPU in each of two nodes",
+  "unit-tests": "unit tests of the submitted code",
+  "e5-fatcheck": "repeat of three wide-rank configurations, two rounds",
+  "gpu-validate": "GPU unit tests: K0, K1, K2 on boundary, mask and grouped-head cases, every row against fp64",
+  "e8-clock": "control under perf stat (clock and work per cycle); ring exchange without computation, 2 to 72 ranks"
+ },
+ "excluded_runs": {
+  "build-validate-20261110T151428Z": "bring-up of the build and launcher on Vanda; no measurement is taken from it",
+  "build-validate-20261110T151704Z": "bring-up of the build and launcher on Vanda; no measurement is taken from it",
+  "build-validate-20261110T152242Z": "bring-up of the build and launcher on Vanda; no measurement is taken from it",
+  "build-validate-20261110T152717Z": "bring-up of the build and launcher on Vanda; no measurement is taken from it",
+  "e0-abtest-20261110T164045Z": "development comparison of two source versions; replaced by the controlled alignment experiment e0-align",
+  "e0-tune-20261110T164927Z": "development tile sweep and counters used to choose the tile sizes; the reported sweep is in e1-serial and the counters in e0-align",
+  "e1-extras-20261110T161524Z": "measured with the kernel before aligned buffers; replaced by e1-extras-20261110T170353Z",
+  "e1-extras-20261110T163158Z": "cancelled while running (source before aligned buffers); its exit-status file predates the fix that records a kill",
+  "e1-serial-20261110T153940Z": "count-based warm-up (1 repetition): short configurations ran before the processor reached its steady clock; rerun with --warmup-seconds and the 512-bit build",
+  "e1-serial-20261110T163133Z": "built before page-aligned buffers (tag 50d0de45b3); kernel timings changed by ~30% afterwards",
+  "e2-strong-20261110T154358Z": "never ran to completion (cancelled while queued, or failed to start); no data",
+  "e2-strong-20261110T160544Z": "count-based warm-up (1 repetition): short configurations ran before the processor reached its steady clock; rerun with --warmup-seconds and the 512-bit build",
+  "e2-strong-20261110T163128Z": "built before page-aligned buffers (tag 50d0de45b3); kernel timings changed by ~30% afterwards",
+  "e2-strongx-20261110T170358Z": "cancelled before it started (2026-11-10T17:16Z, submission freeze); never ran, no data",
+  "e3-causal-20261110T163152Z": "built before page-aligned buffers (tag 50d0de45b3); kernel timings changed by ~30% afterwards",
+  "e3-multi-20261110T154401Z": "count-based warm-up (1 repetition): short configurations ran before the processor reached its steady clock; rerun with --warmup-seconds and the 512-bit build",
+  "e3-multi-20261110T163255Z": "built before page-aligned buffers (tag 50d0de45b3); kernel timings changed by ~30% afterwards",
+  "e3-multi-20261110T170400Z": "cancelled before it started (2026-11-10T17:16Z, submission freeze); never ran, no data",
+  "e5-model-20261110T161754Z": "never ran to completion (cancelled while queued, or failed to start); no data",
+  "e5-model-20261110T161811Z": "count-based warm-up (1 repetition): short configurations ran before the processor reached its steady clock; rerun with --warmup-seconds and the 512-bit build",
+  "e5-model-20261110T163137Z": "built before page-aligned buffers (tag 50d0de45b3); kernel timings changed by ~30% afterwards",
+  "e5-model-20261110T170351Z": "cancelled before it started (2026-11-10T17:16Z, submission freeze); never ran, no data",
+  "e7-hardware-20261110T154403Z": "count-based warm-up (1 repetition): short configurations ran before the processor reached its steady clock; rerun with --warmup-seconds and the 512-bit build",
+  "e7-hardware-20261110T163448Z": "built before page-aligned buffers (tag 50d0de45b3); kernel timings changed by ~30% afterwards",
+  "e7-memory-20261110T160751Z": "count-based warm-up (1 repetition): short configurations ran before the processor reached its steady clock; rerun with --warmup-seconds and the 512-bit build",
+  "e7-memprobe-20261110T161859Z": "built before page-aligned buffers (tag 50d0de45b3); kernel timings changed by ~30% afterwards",
+  "extract-diagnose-20261110T151033Z": "data preparation (extraction of the real tensors), not a measurement",
+  "extract-diagnose2-20261110T151409Z": "data preparation (extraction of the real tensors), not a measurement",
+  "extract-qkv-20261110T150348Z": "data preparation (extraction of the real tensors), not a measurement",
+  "extract-qkv-20261110T152246Z": "data preparation (extraction of the real tensors), not a measurement",
+  "gpu-ladder-20261110T153311Z": "superseded by gpu-ladder-20261110T154830Z (tolerance for real tensors; launcher test on shared GPU nodes)",
+  "gpu-ladder-20261110T154419Z": "superseded by gpu-ladder-20261110T154830Z (tolerance for real tensors; launcher test on shared GPU nodes)",
+  "gpu-profile-20261110T162150Z": "profiler run that reached its walltime without output",
+  "gpu-ring-1node-20261110T153314Z": "never ran to completion (cancelled while queued, or failed to start); no data",
+  "gpu-ring-1node-20261110T154835Z": "never ran to completion (cancelled while queued, or failed to start); no data",
+  "gpu-ring-1node-20261110T161108Z": "never ran to completion (cancelled while queued, or failed to start); no data",
+  "gpu-ring-1node-20261110T170806Z": "cancelled before it started (2026-11-10T17:16Z, submission freeze); never ran, no data",
+  "gpu-ring-2node-20261110T153316Z": "never ran to completion (cancelled while queued, or failed to start); no data",
+  "gpu-ring-2node-20261110T154836Z": "never ran to completion (cancelled while queued, or failed to start); no data",
+  "gpu-ring-2node-20261110T161110Z": "never ran to completion (cancelled while queued, or failed to start); no data",
+  "gpu-ring-2node-20261110T170808Z": "cancelled before it started (2026-11-10T17:16Z, submission freeze); never ran, no data",
+  "gpu-ring-2node-20261110T173733Z": "failed at start (4 s, exit status 1): the Open MPI of the GPU toolchain has no PBS support and did not see the second node; no measurement. Repeated as gpu-ring-2node-20261111T000513Z",
+  "gpu-validate-20261110T150603Z": "never ran to completion (cancelled while queued, or failed to start); no data",
+  "gpu-validate-20261110T151720Z": "bring-up of the CUDA build; correctness figures quoted in the validation section come from the last, successful run",
+  "gpu-validate-20261110T152244Z": "bring-up of the CUDA build; correctness figures quoted in the validation section come from the last, successful run",
+  "launch-probe-20261110T152540Z": "never ran to completion (cancelled while queued, or failed to start); no data",
+  "launch-probe-20261110T152553Z": "launcher diagnostic; no measurement",
+  "real-data-20261110T152903Z": "count-based warm-up (1 repetition): short configurations ran before the processor reached its steady clock; rerun with --warmup-seconds and the 512-bit build",
+  "real-data-20261110T161522Z": "count-based warm-up (1 repetition): short configurations ran before the processor reached its steady clock; rerun with --warmup-seconds and the 512-bit build",
+  "real-data-20261110T163200Z": "built before page-aligned buffers (tag 50d0de45b3); kernel timings changed by ~30% afterwards",
+  "real-data-20261110T170355Z": "cancelled before it started (2026-11-10T17:16Z, submission freeze); never ran, no data",
+  "transport-probe-20261110T155254Z": "never ran to completion (cancelled while queued, or failed to start); no data",
+  "transport-probe-20261110T155618Z": "MPI transport diagnostic; no measurement used in the report",
+  "transport-probe2-20261110T160434Z": "MPI transport diagnostic; no measurement used in the report",
+  "unit-tests-20261111T001153Z": "all tests passed, but the job scripts were changed afterwards (memory guard in common.sh); repeated on the final source as unit-tests-20261111T001926Z",
+  "e5-fatcheck-20261111T001155Z": "incomplete: the select statement had been replaced with qalter and lost its memory assignment; 16 of 24 configurations were killed at the memory limit (the 8 that ran agree with the repeat). Repeated as e5-fatcheck-20261111T001928Z",
+  "unit-tests-20261111T001926Z": "all tests passed, but the benchmark driver's option checks were tightened afterwards; repeated on the final source as unit-tests-20261111T005710Z",
+  "unit-tests-20261111T005607Z": "never ran: the scheduler sent it to a faulty node (cn-151), where it failed to start 13 times; deleted while queued and resubmitted on cn-037 as unit-tests-20261111T005710Z",
+  "unit-tests-20261111T005710Z": "all tests passed, but a program (attn_ringbench) and two suites were added afterwards; repeated on the final source as unit-tests-20261111T031309Z"
+ },
+ "configurations": {
+  "e0-align-20261110T170343Z": {
+   "align-perf.csv": 3,
+   "align.csv": 39
+  },
+  "e1-extras-20261110T170353Z": {
+   "baseline.csv": 3,
+   "ramp.csv": 1
+  },
+  "e1-serial-20261110T170345Z": {
+   "serial-d.csv": 15,
+   "serial-error.csv": 18,
+   "serial-ladder-w256.csv": 3,
+   "serial-n.csv": 25,
+   "serial-tiles.csv": 48,
+   "serial-w256.csv": 5
+  },
+  "e2-strong-20261110T170339Z": {
+   "strong.csv": 84
+  },
+  "e3-single-20261110T170341Z": {
+   "causal.csv": 14,
+   "gqa.csv": 18,
+   "hybrid.csv": 14,
+   "weak-rows.csv": 56,
+   "weak-work.csv": 32
+  },
+  "e5-fatcheck-20261111T001928Z": {
+   "fatcheck-poll-r1.csv": 3,
+   "fatcheck-poll-r2.csv": 3,
+   "fatcheck-r1.csv": 9,
+   "fatcheck-r2.csv": 9
+  },
+  "e7-hardware-20261110T170347Z": {
+   "hardware-spread.csv": 4,
+   "hardware-w256.csv": 3,
+   "hardware.csv": 9
+  },
+  "e7-memory-20261110T170349Z": {
+   "memory.csv": 16
+  },
+  "e8-clock-20261111T031305Z": {
+   "clock.csv": 8,
+   "ring-exchange.csv": 36
+  },
+  "gpu-ladder-20261110T154830Z": {
+   "ladder-causal.csv": 4,
+   "ladder.csv": 20,
+   "real.csv": 9
+  },
+  "gpu-ring-1node-20261110T173731Z": {
+   "ring-causal-one-node.csv": 2,
+   "ring-one-node.csv": 30
+  },
+  "gpu-ring-2node-20261111T000513Z": {
+   "ring-causal-two-nodes.csv": 2,
+   "ring-two-nodes.csv": 30
+  },
+  "gpu-ringcheck-20261110T173729Z": {
+   "ringcheck.csv": 17
+  },
+  "gpu-validate-20261110T152555Z": {
+   "gpu-ladder-pilot.csv": 13,
+   "gpu-validation.csv": 24
+  },
+  "real-e11-20261110T155620Z": {
+   "e11-N16384-layer00.csv": 28672,
+   "e11-N16384-layer11.csv": 28672,
+   "e11-N16384-layer23.csv": 28672,
+   "e11-N32768-layer00.csv": 28672,
+   "e11-N32768-layer11.csv": 28672,
+   "e11-N32768-layer23.csv": 28672,
+   "e11-N8192-layer00.csv": 28672,
+   "e11-N8192-layer11.csv": 28672,
+   "e11-N8192-layer23.csv": 28672
+  },
+  "unit-tests-20261111T031309Z": {
+   "unit-tests.csv": 14
+  },
+  "v1-single-20261110T173725Z": {
+   "e10-real.csv": 16,
+   "model-fat.csv": 32,
+   "model-thin.csv": 35,
+   "netbench-node.csv": 38,
+   "v7-variants.csv": 15,
+   "v7.csv": 9
+  },
+  "v2-multi-20261110T173727Z": {
+   "causal.csv": 7,
+   "comm-fat-poll.csv": 10,
+   "comm-fat.csv": 20,
+   "comm-order.csv": 2,
+   "comm-packed.csv": 2,
+   "comm-poll.csv": 20,
+   "comm-small-c.csv": 35,
+   "comm-spread.csv": 2,
+   "comm-trace.csv": 3,
+   "gqa.csv": 18,
+   "hybrid.csv": 14,
+   "netbench.csv": 76,
+   "strong.csv": 48,
+   "weak-rows.csv": 16,
+   "weak-work.csv": 8
+  }
+ },
+ "configurations_note": "Timed files: number of distinct configurations (each with its repetitions); other files: number of rows. Counted from the retrieved files when the runs were selected, after their failure logs had been checked; the audit compares every later state with these counts."
+}

@@ -1,0 +1,3443 @@
+{
+ "passed": true,
+ "problems": [],
+ "notes": [
+  "73 configurations have a repetition spread above 10% (listed under repetition_spread)"
+ ],
+ "selected_run_directories": 18,
+ "excluded_run_directories": 59,
+ "repetitions_validated": 3369,
+ "repetitions_failed": 18,
+ "cpu_model": [
+  "Intel(R) Xeon(R) Platinum 8452Y"
+ ],
+ "sources": {
+  "cpu": {
+   "snapshots": [
+    "26bcb9e576",
+    "61f4285084",
+    "6d5b40617f",
+    "70c478f422"
+   ],
+   "files": {
+    "include/attn/core.hpp": {
+     "sha256": [
+      "095043f9bd2af446b31f582faadf060737c6cb6ba5f1527561c95a02dbe055ed"
+     ],
+     "identical_across_snapshots": true,
+     "submitted_tree_identical": true
+    },
+    "include/attn/distributed.hpp": {
+     "sha256": [
+      "a4c599c92d0fb7c5c76cc7e47ecea4940abbd0512873ec93205b40fef19531fc"
+     ],
+     "identical_across_snapshots": true,
+     "submitted_tree_identical": true
+    },
+    "src/core.cpp": {
+     "sha256": [
+      "c2aeaddfa1f0ce26ffe4eb9fef51e7433709d7ff4d4a0fa8c044d040c15a3a7e"
+     ],
+     "identical_across_snapshots": true,
+     "submitted_tree_identical": true
+    },
+    "src/distributed.cpp": {
+     "sha256": [
+      "00e4da0bae00baf90af70e0267f65c46ece3bc15d5a021c05fa311eaaec9cabc"
+     ],
+     "identical_across_snapshots": true,
+     "submitted_tree_identical": true
+    },
+    "apps/attn_bench.cpp": {
+     "sha256": [
+      "d6df373155796a07ba067b8b85c5d5bd6044e13e7c331d7fc41aa1f277a4f2bd",
+      "ea92407a0a4bd3cfa281d5837f0213e7c3586ba0be52b3c6044a1fa3d278d3ec"
+     ],
+     "identical_across_snapshots": false,
+     "submitted_tree_identical": false,
+     "changed_after_measurement": {
+      "change": "the options --warmup-seconds and --tolerance-scale reject infinite values",
+      "condition": "undoing the two changed conditions restores the measured file byte for byte, and every recorded command gives both options a finite value, for which the old and the new condition are the same",
+      "reverting_restores_measured_file": true,
+      "snapshots_with_the_measured_version": [
+       "26bcb9e576",
+       "61f4285084",
+       "6d5b40617f"
+      ],
+      "records_checked": {
+       "e0-align-20261110T170343Z": {
+        "commands": 15,
+        "not_finite": [],
+        "condition_holds": true
+       },
+       "e1-extras-20261110T170353Z": {
+        "commands": 4,
+        "not_finite": [],
+        "condition_holds": true
+       },
+       "e1-serial-20261110T170345Z": {
+        "commands": 114,
+        "not_finite": [],
+        "condition_holds": true
+       },
+       "e2-strong-20261110T170339Z": {
+        "commands": 84,
+        "not_finite": [],
+        "condition_holds": true
+       },
+       "e3-single-20261110T170341Z": {
+        "commands": 109,
+        "not_finite": [],
+        "condition_holds": true
+       },
+       "e5-fatcheck-20261111T001928Z": {
+        "commands": 24,
+        "not_finite": [],
+        "condition_holds": true
+       },
+       "e7-hardware-20261110T170347Z": {
+        "commands": 11,
+        "not_finite": [],
+        "condition_holds": true
+       },
+       "e7-memory-20261110T170349Z": {
+        "commands": 16,
+        "not_finite": [],
+        "condition_holds": true
+       },
+       "v1-single-20261110T173725Z": {
+        "commands": 95,
+        "not_finite": [],
+        "condition_holds": true
+       },
+       "v2-multi-20261110T173727Z": {
+        "commands": 205,
+        "not_finite": [],
+        "condition_holds": true
+       }
+      }
+     }
+    },
+    "apps/attn_netbench.cpp": {
+     "sha256": [
+      "af957f99e41ddb9e7ccb8b0df5f8032cb7ff735a64780429ccc5e05bcecfb944"
+     ],
+     "identical_across_snapshots": true,
+     "submitted_tree_identical": true
+    },
+    "CMakeLists.txt": {
+     "sha256": [
+      "558afd27b23c191220ecb963a680d34492be0b48c83aa014a45ddac99bfa1dab",
+      "e62c52034f5a28184a2fe5217509d19fb8b80ab077ef3696fb4cc62abb473c3a"
+     ],
+     "identical_across_snapshots": false,
+     "submitted_tree_identical": false,
+     "changed_after_measurement": {
+      "change": "a target for the ring-exchange microbenchmark (apps/attn_ringbench.cpp) was added",
+      "condition": "removing the three added lines restores the measured file byte for byte; no existing target is touched",
+      "reverting_restores_measured_file": true,
+      "snapshots_with_the_measured_version": [
+       "26bcb9e576",
+       "61f4285084",
+       "6d5b40617f"
+      ]
+     }
+    }
+   }
+  },
+  "gpu": {
+   "snapshots": [
+    "0680e49ddb",
+    "26bcb9e576",
+    "43075d2e97",
+    "950c367da6"
+   ],
+   "files": {
+    "include/attn/gpu.hpp": {
+     "sha256": [
+      "5b33671afd981e04e491bd94c85452eb42ce4c256943f3fead6c8a1a7dc63824"
+     ],
+     "identical_across_snapshots": true,
+     "submitted_tree_identical": true
+    },
+    "src/gpu_kernels.cu": {
+     "sha256": [
+      "165a1e33d1d371c20e75da4dfcff46636f73014a5440a4e1aa3c875b5219f20a"
+     ],
+     "identical_across_snapshots": true,
+     "submitted_tree_identical": true
+    }
+   },
+   "driver_by_snapshot": {
+    "0680e49ddb": "0d3b6215294c60f392a8190b7a8a5b84695d524a031653009efbeac7b276903b",
+    "26bcb9e576": "48cb2cb59ff6f75084636e6c17871d1724e32a046cfd2763ce30ae5aa18fe160",
+    "43075d2e97": "24168fe66605af85d0df0ba7389f8d588ae7c1d862bc62890a49a7a5b4d1d916",
+    "950c367da6": "82532d39964b17f32bb8e9b13329569d13564618045dcba6ddfe30f5ddacedda"
+   }
+  },
+  "analysis": {
+   "snapshots": [
+    "ab50eef687"
+   ],
+   "files": {
+    "apps/attn_analyze.cpp": {
+     "sha256": [
+      "c168da161eea193186e88733aab40dbd5da93f561aa1e45ba20cca6e5e7211c9"
+     ],
+     "identical_across_snapshots": true,
+     "submitted_tree_identical": false,
+     "changed_after_measurement": {
+      "change": "two edge cases handled (a window whose weights all underflow relative to the row maximum; an exact output equal to zero), absolute errors added as columns, MPI_THREAD_FUNNELED requested",
+      "condition": "every field finite, every output norm positive and every window probability at least 1e-280: the changed branches are then not reached and the arithmetic of the other branch is unchanged",
+      "snapshots_with_the_measured_version": [
+       "ab50eef687"
+      ],
+      "records_checked": {
+       "real-e11-20261110T155620Z": {
+        "records": 258048,
+        "fields": 7225344,
+        "smallest_window_probability": 1.049613949e-23,
+        "smallest_output_norm": 0.03350046652,
+        "non_finite": [],
+        "condition_holds": true
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "repeatability": {
+  "definition": "(largest - smallest) / median of the repetitions of one configuration; threshold 0.05 s",
+  "at_least_50ms": {
+   "configurations": 549,
+   "median": 0.0041003384258144785,
+   "p90": 0.03926373681873766,
+   "max": 0.48458728760702635,
+   "share_above_10_percent": 0.02185792349726776
+  },
+  "below_50ms": {
+   "configurations": 177,
+   "median": 0.057963074716391554,
+   "p90": 0.27904454953485697,
+   "max": 1.0848913075523314,
+   "share_above_10_percent": 0.2937853107344633
+  },
+  "gpu_at_least_50ms": {
+   "configurations": 69,
+   "median": 0.00474203381303593,
+   "p90": 0.01663404618803044,
+   "max": 0.07166364116627386,
+   "share_above_10_percent": 0.0
+  },
+  "gpu_below_50ms": {
+   "configurations": 58,
+   "median": 0.00705795800989685,
+   "p90": 0.14369737943698538,
+   "max": 1.2987597757220408,
+   "share_above_10_percent": 0.1206896551724138
+  }
+ },
+ "repetition_spread": [
+  {
+   "run": "gpu-ring-2node-20261111T000513Z",
+   "file": "ring-two-nodes.csv",
+   "configuration": {
+    "purpose": "final-ring-two-nodes",
+    "kernel": "k2",
+    "N": "4096",
+    "ranks": "2",
+    "mask": "none",
+    "partition": "contiguous",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "alpha": "1",
+    "data": "synthetic",
+    "comm": "aware",
+    "schedule": "overlap"
+   },
+   "relative_spread": 1.299,
+   "median_seconds": 0.010401022000000003
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "comm-poll.csv",
+   "configuration": {
+    "purpose": "final-comm",
+    "impl": "overlap",
+    "kernel": "tuned",
+    "N": "9216",
+    "ranks": "288",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "4",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 1.085,
+   "median_seconds": 0.007190748000000191
+  },
+  {
+   "run": "v1-single-20261110T173725Z",
+   "file": "model-fat.csv",
+   "configuration": {
+    "purpose": "final-model",
+    "impl": "local",
+    "kernel": "tuned",
+    "N": "576",
+    "ranks": "4",
+    "threads": "18",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.858,
+   "median_seconds": 0.00018032100000020534
+  },
+  {
+   "run": "v1-single-20261110T173725Z",
+   "file": "model-fat.csv",
+   "configuration": {
+    "purpose": "final-model",
+    "impl": "ring",
+    "kernel": "tuned",
+    "N": "576",
+    "ranks": "4",
+    "threads": "18",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.787,
+   "median_seconds": 0.0002601609999999255
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "comm-fat.csv",
+   "configuration": {
+    "purpose": "final-comm",
+    "impl": "local",
+    "kernel": "tuned",
+    "N": "4608",
+    "ranks": "16",
+    "threads": "18",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.696,
+   "median_seconds": 0.0013099140000001341
+  },
+  {
+   "run": "gpu-ring-2node-20261111T000513Z",
+   "file": "ring-two-nodes.csv",
+   "configuration": {
+    "purpose": "final-ring-two-nodes",
+    "kernel": "k2",
+    "N": "4096",
+    "ranks": "2",
+    "mask": "none",
+    "partition": "contiguous",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "alpha": "1",
+    "data": "synthetic",
+    "comm": "aware",
+    "schedule": "blocking"
+   },
+   "relative_spread": 0.673,
+   "median_seconds": 0.019804986000000004
+  },
+  {
+   "run": "gpu-ring-2node-20261111T000513Z",
+   "file": "ring-two-nodes.csv",
+   "configuration": {
+    "purpose": "final-ring-two-nodes",
+    "kernel": "k2",
+    "N": "8192",
+    "ranks": "2",
+    "mask": "none",
+    "partition": "contiguous",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "alpha": "1",
+    "data": "synthetic",
+    "comm": "host",
+    "schedule": "blocking"
+   },
+   "relative_spread": 0.634,
+   "median_seconds": 0.01979052399999999
+  },
+  {
+   "run": "e1-extras-20261110T170353Z",
+   "file": "ramp.csv",
+   "configuration": {
+    "purpose": "final-ramp",
+    "impl": "S1",
+    "kernel": "tuned",
+    "N": "2048",
+    "ranks": "1",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.589,
+   "median_seconds": 0.01785577550000017
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "comm-fat-poll.csv",
+   "configuration": {
+    "purpose": "final-comm",
+    "impl": "rma_get",
+    "kernel": "tuned",
+    "N": "4608",
+    "ranks": "16",
+    "threads": "18",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "18",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.504,
+   "median_seconds": 0.0076783410000000885
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "weak-rows.csv",
+   "configuration": {
+    "purpose": "final-weak",
+    "impl": "overlap",
+    "kernel": "tuned",
+    "N": "73728",
+    "ranks": "288",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.485,
+   "median_seconds": 0.134170868
+  },
+  {
+   "run": "e3-single-20261110T170341Z",
+   "file": "weak-rows.csv",
+   "configuration": {
+    "purpose": "final-weak",
+    "impl": "local",
+    "kernel": "tuned",
+    "N": "256",
+    "ranks": "1",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.477,
+   "median_seconds": 0.00047879400000017114
+  },
+  {
+   "run": "v1-single-20261110T173725Z",
+   "file": "model-fat.csv",
+   "configuration": {
+    "purpose": "final-model",
+    "impl": "overlap",
+    "kernel": "tuned",
+    "N": "1152",
+    "ranks": "4",
+    "threads": "18",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.472,
+   "median_seconds": 0.0004498650000002158
+  },
+  {
+   "run": "v1-single-20261110T173725Z",
+   "file": "model-fat.csv",
+   "configuration": {
+    "purpose": "final-model",
+    "impl": "overlap",
+    "kernel": "tuned",
+    "N": "2304",
+    "ranks": "4",
+    "threads": "18",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.4,
+   "median_seconds": 0.0009839259999999683
+  },
+  {
+   "run": "e1-serial-20261110T170345Z",
+   "file": "serial-n.csv",
+   "configuration": {
+    "purpose": "final-serial",
+    "impl": "S1",
+    "kernel": "tuned",
+    "N": "1024",
+    "ranks": "1",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.394,
+   "median_seconds": 0.004535789000000179
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "comm-fat.csv",
+   "configuration": {
+    "purpose": "final-comm",
+    "impl": "overlap",
+    "kernel": "tuned",
+    "N": "73728",
+    "ranks": "16",
+    "threads": "18",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.375,
+   "median_seconds": 0.2521480509999998
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "comm-small-c.csv",
+   "configuration": {
+    "purpose": "final-comm",
+    "impl": "ring",
+    "kernel": "tuned",
+    "N": "4608",
+    "ranks": "288",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.373,
+   "median_seconds": 0.00795390600000001
+  },
+  {
+   "run": "e3-single-20261110T170341Z",
+   "file": "weak-rows.csv",
+   "configuration": {
+    "purpose": "final-weak",
+    "impl": "overlap",
+    "kernel": "tuned",
+    "N": "512",
+    "ranks": "2",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.363,
+   "median_seconds": 0.0007713090000001088
+  },
+  {
+   "run": "v1-single-20261110T173725Z",
+   "file": "model-fat.csv",
+   "configuration": {
+    "purpose": "final-model",
+    "impl": "local",
+    "kernel": "tuned",
+    "N": "2304",
+    "ranks": "4",
+    "threads": "18",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.361,
+   "median_seconds": 0.0007735040000005355
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "comm-fat.csv",
+   "configuration": {
+    "purpose": "final-comm",
+    "impl": "overlap",
+    "kernel": "tuned",
+    "N": "9216",
+    "ranks": "16",
+    "threads": "18",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.345,
+   "median_seconds": 0.004691128000000155
+  },
+  {
+   "run": "e3-single-20261110T170341Z",
+   "file": "weak-rows.csv",
+   "configuration": {
+    "purpose": "final-weak",
+    "impl": "overlap",
+    "kernel": "tuned",
+    "N": "256",
+    "ranks": "1",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.298,
+   "median_seconds": 0.0003506240000001881
+  },
+  {
+   "run": "v1-single-20261110T173725Z",
+   "file": "model-thin.csv",
+   "configuration": {
+    "purpose": "final-model",
+    "impl": "local",
+    "kernel": "tuned",
+    "N": "576",
+    "ranks": "72",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.296,
+   "median_seconds": 0.0002956489999998979
+  },
+  {
+   "run": "e3-single-20261110T170341Z",
+   "file": "weak-rows.csv",
+   "configuration": {
+    "purpose": "final-weak",
+    "impl": "ring",
+    "kernel": "tuned",
+    "N": "512",
+    "ranks": "2",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.286,
+   "median_seconds": 0.0007911299999996402
+  },
+  {
+   "run": "e8-clock-20261111T031305Z",
+   "file": "clock.csv",
+   "configuration": {
+    "purpose": "final-clock-packed-P72",
+    "impl": "local",
+    "kernel": "tuned",
+    "N": "65536",
+    "ranks": "72",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.283,
+   "median_seconds": 0.33470346350000035
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "comm-small-c.csv",
+   "configuration": {
+    "purpose": "final-comm",
+    "impl": "iallgather",
+    "kernel": "tuned",
+    "N": "4608",
+    "ranks": "288",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.282,
+   "median_seconds": 0.020320014000000164
+  },
+  {
+   "run": "v1-single-20261110T173725Z",
+   "file": "model-thin.csv",
+   "configuration": {
+    "purpose": "final-model",
+    "impl": "allgather",
+    "kernel": "tuned",
+    "N": "1152",
+    "ranks": "72",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.28,
+   "median_seconds": 0.0012658009999997333
+  },
+  {
+   "run": "e3-single-20261110T170341Z",
+   "file": "weak-rows.csv",
+   "configuration": {
+    "purpose": "final-weak",
+    "impl": "rma_get",
+    "kernel": "tuned",
+    "N": "256",
+    "ranks": "1",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.279,
+   "median_seconds": 0.0003651890000000435
+  },
+  {
+   "run": "gpu-ring-2node-20261111T000513Z",
+   "file": "ring-two-nodes.csv",
+   "configuration": {
+    "purpose": "final-ring-two-nodes",
+    "kernel": "k2",
+    "N": "8192",
+    "ranks": "2",
+    "mask": "none",
+    "partition": "contiguous",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "alpha": "1",
+    "data": "synthetic",
+    "comm": "host",
+    "schedule": "overlap"
+   },
+   "relative_spread": 0.278,
+   "median_seconds": 0.017660986000000017
+  },
+  {
+   "run": "gpu-ring-2node-20261111T000513Z",
+   "file": "ring-two-nodes.csv",
+   "configuration": {
+    "purpose": "final-ring-two-nodes",
+    "kernel": "k2",
+    "N": "4096",
+    "ranks": "2",
+    "mask": "none",
+    "partition": "contiguous",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "alpha": "1",
+    "data": "synthetic",
+    "comm": "host",
+    "schedule": "blocking"
+   },
+   "relative_spread": 0.264,
+   "median_seconds": 0.019822722999999987
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "comm-fat.csv",
+   "configuration": {
+    "purpose": "final-comm",
+    "impl": "overlap",
+    "kernel": "tuned",
+    "N": "4608",
+    "ranks": "16",
+    "threads": "18",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.229,
+   "median_seconds": 0.0033656950000002794
+  },
+  {
+   "run": "e5-fatcheck-20261111T001928Z",
+   "file": "fatcheck-r1.csv",
+   "configuration": {
+    "purpose": "final-fatcheck",
+    "impl": "local",
+    "kernel": "tuned",
+    "N": "36864",
+    "ranks": "16",
+    "threads": "18",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.213,
+   "median_seconds": 0.0325156290000006
+  },
+  {
+   "run": "v1-single-20261110T173725Z",
+   "file": "model-fat.csv",
+   "configuration": {
+    "purpose": "final-model",
+    "impl": "overlap",
+    "kernel": "tuned",
+    "N": "576",
+    "ranks": "4",
+    "threads": "18",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.211,
+   "median_seconds": 0.00022311599999991216
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "comm-fat.csv",
+   "configuration": {
+    "purpose": "final-comm",
+    "impl": "rma_get",
+    "kernel": "tuned",
+    "N": "9216",
+    "ranks": "16",
+    "threads": "18",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.208,
+   "median_seconds": 0.020123982000000318
+  },
+  {
+   "run": "e3-single-20261110T170341Z",
+   "file": "weak-rows.csv",
+   "configuration": {
+    "purpose": "final-weak",
+    "impl": "rma_get",
+    "kernel": "tuned",
+    "N": "512",
+    "ranks": "2",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.205,
+   "median_seconds": 0.0007371960000002176
+  },
+  {
+   "run": "e3-single-20261110T170341Z",
+   "file": "weak-rows.csv",
+   "configuration": {
+    "purpose": "final-weak",
+    "impl": "local",
+    "kernel": "tuned",
+    "N": "1024",
+    "ranks": "4",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.203,
+   "median_seconds": 0.0013211269999997555
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "comm-poll.csv",
+   "configuration": {
+    "purpose": "final-comm",
+    "impl": "rma_get",
+    "kernel": "tuned",
+    "N": "36864",
+    "ranks": "288",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "1",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.196,
+   "median_seconds": 1.1263076610000002
+  },
+  {
+   "run": "v1-single-20261110T173725Z",
+   "file": "model-thin.csv",
+   "configuration": {
+    "purpose": "final-model",
+    "impl": "overlap",
+    "kernel": "tuned",
+    "N": "18432",
+    "ranks": "72",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.193,
+   "median_seconds": 0.02970967999999985
+  },
+  {
+   "run": "v1-single-20261110T173725Z",
+   "file": "model-fat.csv",
+   "configuration": {
+    "purpose": "final-model",
+    "impl": "rma_get",
+    "kernel": "tuned",
+    "N": "18432",
+    "ranks": "4",
+    "threads": "18",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.189,
+   "median_seconds": 0.031226451999999405
+  },
+  {
+   "run": "gpu-ladder-20261110T154830Z",
+   "file": "ladder.csv",
+   "configuration": {
+    "purpose": "final-ladder",
+    "kernel": "k1",
+    "N": "2048",
+    "ranks": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "alpha": "1",
+    "data": "synthetic",
+    "comm": "host",
+    "schedule": "overlap"
+   },
+   "relative_spread": 0.187,
+   "median_seconds": 0.001032186
+  },
+  {
+   "run": "e3-single-20261110T170341Z",
+   "file": "weak-rows.csv",
+   "configuration": {
+    "purpose": "final-weak",
+    "impl": "overlap",
+    "kernel": "tuned",
+    "N": "1024",
+    "ranks": "4",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.18,
+   "median_seconds": 0.0013868820000002557
+  },
+  {
+   "run": "e3-single-20261110T170341Z",
+   "file": "weak-rows.csv",
+   "configuration": {
+    "purpose": "final-weak",
+    "impl": "ring",
+    "kernel": "tuned",
+    "N": "256",
+    "ranks": "1",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.178,
+   "median_seconds": 0.00037781400000014287
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "comm-fat.csv",
+   "configuration": {
+    "purpose": "final-comm",
+    "impl": "ring",
+    "kernel": "tuned",
+    "N": "4608",
+    "ranks": "16",
+    "threads": "18",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.174,
+   "median_seconds": 0.00684161800000016
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "comm-small-c.csv",
+   "configuration": {
+    "purpose": "final-comm",
+    "impl": "local",
+    "kernel": "tuned",
+    "N": "2304",
+    "ranks": "288",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.167,
+   "median_seconds": 0.0010010759999996566
+  },
+  {
+   "run": "e1-serial-20261110T170345Z",
+   "file": "serial-error.csv",
+   "configuration": {
+    "purpose": "final-serial",
+    "impl": "S1",
+    "kernel": "tuned",
+    "N": "1024",
+    "ranks": "1",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "16",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.164,
+   "median_seconds": 0.01030528300000011
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "comm-fat-poll.csv",
+   "configuration": {
+    "purpose": "final-comm",
+    "impl": "overlap",
+    "kernel": "tuned",
+    "N": "9216",
+    "ranks": "16",
+    "threads": "18",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "18",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.164,
+   "median_seconds": 0.0058813320000004055
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "comm-fat.csv",
+   "configuration": {
+    "purpose": "final-comm",
+    "impl": "rma_get",
+    "kernel": "tuned",
+    "N": "4608",
+    "ranks": "16",
+    "threads": "18",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.162,
+   "median_seconds": 0.006900410000000079
+  },
+  {
+   "run": "e3-single-20261110T170341Z",
+   "file": "weak-rows.csv",
+   "configuration": {
+    "purpose": "final-weak",
+    "impl": "ring",
+    "kernel": "tuned",
+    "N": "2048",
+    "ranks": "8",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.161,
+   "median_seconds": 0.002729713999999994
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "strong.csv",
+   "configuration": {
+    "purpose": "final-strong",
+    "impl": "allgather",
+    "kernel": "tuned",
+    "N": "32768",
+    "ranks": "288",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.161,
+   "median_seconds": 0.04459798499999934
+  },
+  {
+   "run": "e3-single-20261110T170341Z",
+   "file": "weak-rows.csv",
+   "configuration": {
+    "purpose": "final-weak",
+    "impl": "ring",
+    "kernel": "tuned",
+    "N": "1024",
+    "ranks": "1",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.159,
+   "median_seconds": 0.004799983999999924
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "gqa.csv",
+   "configuration": {
+    "purpose": "final-gqa",
+    "impl": "ring",
+    "kernel": "tuned",
+    "N": "16384",
+    "ranks": "288",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "14",
+    "Hkv": "14",
+    "mha_control": "1",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.159,
+   "median_seconds": 0.21411606100000036
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "gqa.csv",
+   "configuration": {
+    "purpose": "final-gqa",
+    "impl": "ring",
+    "kernel": "tuned",
+    "N": "8192",
+    "ranks": "288",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "14",
+    "Hkv": "14",
+    "mha_control": "1",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.148,
+   "median_seconds": 0.11072293500000008
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "comm-small-c.csv",
+   "configuration": {
+    "purpose": "final-comm",
+    "impl": "allgather",
+    "kernel": "tuned",
+    "N": "4608",
+    "ranks": "288",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.146,
+   "median_seconds": 0.005298244000000452
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "weak-rows.csv",
+   "configuration": {
+    "purpose": "final-weak",
+    "impl": "ring",
+    "kernel": "tuned",
+    "N": "36864",
+    "ranks": "144",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.146,
+   "median_seconds": 0.08218630699999974
+  },
+  {
+   "run": "gpu-ring-2node-20261111T000513Z",
+   "file": "ring-two-nodes.csv",
+   "configuration": {
+    "purpose": "final-ring-two-nodes",
+    "kernel": "k2",
+    "N": "4096",
+    "ranks": "2",
+    "mask": "none",
+    "partition": "contiguous",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "alpha": "1",
+    "data": "synthetic",
+    "comm": "host",
+    "schedule": "overlap"
+   },
+   "relative_spread": 0.144,
+   "median_seconds": 0.017422134000000006
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "comm-fat.csv",
+   "configuration": {
+    "purpose": "final-comm",
+    "impl": "ring",
+    "kernel": "tuned",
+    "N": "18432",
+    "ranks": "16",
+    "threads": "18",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.14,
+   "median_seconds": 0.014260992999999722
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "strong.csv",
+   "configuration": {
+    "purpose": "final-strong",
+    "impl": "local",
+    "kernel": "tuned",
+    "N": "32768",
+    "ranks": "288",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.14,
+   "median_seconds": 0.032349437999999786
+  },
+  {
+   "run": "e3-single-20261110T170341Z",
+   "file": "weak-rows.csv",
+   "configuration": {
+    "purpose": "final-weak",
+    "impl": "rma_get",
+    "kernel": "tuned",
+    "N": "1024",
+    "ranks": "4",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.139,
+   "median_seconds": 0.0013302049999994736
+  },
+  {
+   "run": "e3-single-20261110T170341Z",
+   "file": "weak-rows.csv",
+   "configuration": {
+    "purpose": "final-weak",
+    "impl": "local",
+    "kernel": "tuned",
+    "N": "512",
+    "ranks": "2",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.132,
+   "median_seconds": 0.0006469830000002119
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "comm-small-c.csv",
+   "configuration": {
+    "purpose": "final-comm",
+    "impl": "overlap",
+    "kernel": "tuned",
+    "N": "2304",
+    "ranks": "288",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.131,
+   "median_seconds": 0.002346240000000499
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "strong.csv",
+   "configuration": {
+    "purpose": "final-strong",
+    "impl": "allgather",
+    "kernel": "tuned",
+    "N": "65536",
+    "ranks": "288",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.131,
+   "median_seconds": 0.12370651899999974
+  },
+  {
+   "run": "e3-single-20261110T170341Z",
+   "file": "weak-rows.csv",
+   "configuration": {
+    "purpose": "final-weak",
+    "impl": "rma_get",
+    "kernel": "tuned",
+    "N": "1024",
+    "ranks": "1",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.128,
+   "median_seconds": 0.004664479999999749
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "weak-rows.csv",
+   "configuration": {
+    "purpose": "final-weak",
+    "impl": "rma_get",
+    "kernel": "tuned",
+    "N": "294912",
+    "ranks": "288",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.128,
+   "median_seconds": 11.617455250999999
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "gqa.csv",
+   "configuration": {
+    "purpose": "final-gqa",
+    "impl": "ring",
+    "kernel": "tuned",
+    "N": "16384",
+    "ranks": "288",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "14",
+    "Hkv": "2",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.123,
+   "median_seconds": 0.1053597669999995
+  },
+  {
+   "run": "e3-single-20261110T170341Z",
+   "file": "weak-rows.csv",
+   "configuration": {
+    "purpose": "final-weak",
+    "impl": "local",
+    "kernel": "tuned",
+    "N": "1024",
+    "ranks": "1",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.122,
+   "median_seconds": 0.004833928999999237
+  },
+  {
+   "run": "v1-single-20261110T173725Z",
+   "file": "model-fat.csv",
+   "configuration": {
+    "purpose": "final-model",
+    "impl": "rma_get",
+    "kernel": "tuned",
+    "N": "4608",
+    "ranks": "4",
+    "threads": "18",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.121,
+   "median_seconds": 0.0022614720000007082
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "comm-fat-poll.csv",
+   "configuration": {
+    "purpose": "final-comm",
+    "impl": "rma_get",
+    "kernel": "tuned",
+    "N": "18432",
+    "ranks": "16",
+    "threads": "18",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "18",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.121,
+   "median_seconds": 0.04056731399999958
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "comm-small-c.csv",
+   "configuration": {
+    "purpose": "final-comm",
+    "impl": "rma_get",
+    "kernel": "tuned",
+    "N": "36864",
+    "ranks": "288",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.121,
+   "median_seconds": 1.0154609150000002
+  },
+  {
+   "run": "v1-single-20261110T173725Z",
+   "file": "model-thin.csv",
+   "configuration": {
+    "purpose": "final-model",
+    "impl": "rma_get",
+    "kernel": "tuned",
+    "N": "1152",
+    "ranks": "72",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.12,
+   "median_seconds": 0.0003991120000002013
+  },
+  {
+   "run": "v1-single-20261110T173725Z",
+   "file": "model-thin.csv",
+   "configuration": {
+    "purpose": "final-model",
+    "impl": "allgather",
+    "kernel": "tuned",
+    "N": "4608",
+    "ranks": "72",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.118,
+   "median_seconds": 0.003934087000000197
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "gqa.csv",
+   "configuration": {
+    "purpose": "final-gqa",
+    "impl": "local",
+    "kernel": "tuned",
+    "N": "32768",
+    "ranks": "288",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "14",
+    "Hkv": "14",
+    "mha_control": "1",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.117,
+   "median_seconds": 0.45762256200000007
+  },
+  {
+   "run": "e5-fatcheck-20261111T001928Z",
+   "file": "fatcheck-r2.csv",
+   "configuration": {
+    "purpose": "final-fatcheck",
+    "impl": "local",
+    "kernel": "tuned",
+    "N": "36864",
+    "ranks": "16",
+    "threads": "18",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.11,
+   "median_seconds": 0.03099055599999989
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "comm-poll.csv",
+   "configuration": {
+    "purpose": "final-comm",
+    "impl": "overlap",
+    "kernel": "tuned",
+    "N": "2304",
+    "ranks": "288",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "4",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.103,
+   "median_seconds": 0.0025090709999995298
+  },
+  {
+   "run": "v1-single-20261110T173725Z",
+   "file": "model-thin.csv",
+   "configuration": {
+    "purpose": "final-model",
+    "impl": "allgather",
+    "kernel": "tuned",
+    "N": "2304",
+    "ranks": "72",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.102,
+   "median_seconds": 0.0020930149999998093
+  },
+  {
+   "run": "v2-multi-20261110T173727Z",
+   "file": "strong.csv",
+   "configuration": {
+    "purpose": "final-strong",
+    "impl": "allgather",
+    "kernel": "tuned",
+    "N": "32768",
+    "ranks": "144",
+    "threads": "1",
+    "mask": "none",
+    "partition": "contiguous",
+    "block_q": "128",
+    "block_k": "96",
+    "d": "64",
+    "H": "1",
+    "Hkv": "1",
+    "mha_control": "0",
+    "alpha": "1",
+    "poll_tiles": "0",
+    "fetch_order": "staggered",
+    "data": "synthetic"
+   },
+   "relative_spread": 0.102,
+   "median_seconds": 0.07195978800000002
+  }
+ ],
+ "runs": {
+  "e0-align-20261110T170343Z": {
+   "experiments": [
+    "e0-align"
+   ],
+   "kind": "cpu",
+   "exit_status": "0",
+   "logged_failures": 0,
+   "job": "1537814",
+   "source_tag": "6d5b40617f",
+   "nodes": [
+    "cn-044.stdct.loc"
+   ],
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8452Y",
+   "allocated": {
+    "nodes": "1",
+    "cores": "72",
+    "gpus": "0"
+   },
+   "build": {
+    "alignment": "4096",
+    "extra_flags": "-mprefer-vector-width=512"
+   },
+   "configurations": {
+    "align-perf.csv": 3,
+    "align.csv": 39
+   },
+   "files": {
+    "align-perf.csv": {
+     "rows": 9,
+     "sha256": "29e17d1cbeb38d220cf7a0fbe1296f09c3567b0e6fb2cd4eb7a8d8262ae99e35",
+     "validated": 0,
+     "failed": 0,
+     "configurations": 3,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      0.0
+     ],
+     "protocol_exception": "fixed amount of work under perf stat: one warm-up and three repetitions, no time-based warm-up"
+    },
+    "align.csv": {
+     "rows": 117,
+     "sha256": "a5e9647b2f34e9330ecfe5918512ff26eb4cbd48f6363706f8ba305f0b61b133",
+     "validated": 117,
+     "failed": 0,
+     "configurations": 39,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    }
+   },
+   "validated": 117,
+   "failed": 0
+  },
+  "e1-extras-20261110T170353Z": {
+   "experiments": [
+    "e1-extras"
+   ],
+   "kind": "cpu",
+   "exit_status": "0",
+   "logged_failures": 0,
+   "job": "1537819",
+   "source_tag": "6d5b40617f",
+   "nodes": [
+    "cn-038.stdct.loc"
+   ],
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8452Y",
+   "allocated": {
+    "nodes": "1",
+    "cores": "72",
+    "gpus": "0"
+   },
+   "build": {
+    "alignment": "4096",
+    "extra_flags": "-mprefer-vector-width=512"
+   },
+   "configurations": {
+    "baseline.csv": 3,
+    "ramp.csv": 1
+   },
+   "files": {
+    "baseline.csv": {
+     "rows": 27,
+     "sha256": "cae8aed27f39b149690b4a3b094d45107c95b12d06313e1ca782085147cc9070",
+     "validated": 27,
+     "failed": 0,
+     "configurations": 3,
+     "repetitions": [
+      9
+     ],
+     "warmup_seconds": [
+      5.0
+     ],
+     "repeated_rounds": "three alternating rounds of the serial driver, one rank of M0 and one rank of M2"
+    },
+    "ramp.csv": {
+     "rows": 400,
+     "sha256": "5b1ea536dacc4c032c3fbd7644a0ef0f39428207399c4b2d6e209a478f74f727",
+     "validated": 400,
+     "failed": 0,
+     "configurations": 1,
+     "repetitions": [
+      400
+     ],
+     "warmup_seconds": [
+      0.0
+     ],
+     "protocol_exception": "400 consecutive repetitions without warm-up: the object of the measurement is the warm-up itself"
+    }
+   },
+   "validated": 427,
+   "failed": 0
+  },
+  "e1-serial-20261110T170345Z": {
+   "experiments": [
+    "e1-serial"
+   ],
+   "kind": "cpu",
+   "exit_status": "0",
+   "logged_failures": 6,
+   "job": "1537815",
+   "source_tag": "6d5b40617f",
+   "nodes": [
+    "cn-043.stdct.loc"
+   ],
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8452Y",
+   "allocated": {
+    "nodes": "1",
+    "cores": "72",
+    "gpus": "0"
+   },
+   "build": {
+    "alignment": "4096",
+    "extra_flags": "-mprefer-vector-width=512"
+   },
+   "configurations": {
+    "serial-d.csv": 15,
+    "serial-error.csv": 18,
+    "serial-ladder-w256.csv": 3,
+    "serial-n.csv": 25,
+    "serial-tiles.csv": 48,
+    "serial-w256.csv": 5
+   },
+   "files": {
+    "serial-d.csv": {
+     "rows": 45,
+     "sha256": "2e5ce136cb353f7bdd643bbb7aa9acea20aee24aa72acb49a70b998e92e1fd51",
+     "validated": 45,
+     "failed": 0,
+     "configurations": 15,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "serial-error.csv": {
+     "rows": 54,
+     "sha256": "d3eba7bc702267ad32e6efbe081e4926d602e848a2aa202f7c9c09b4cd015cf6",
+     "validated": 54,
+     "failed": 18,
+     "declared_failure": "stress study: queries multiplied by 50 and every row compared with fp64; the single-precision scores exceed the fixed 1e-5 tolerance for N >= 4096 (reported as failures)",
+     "configurations": 18,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "serial-ladder-w256.csv": {
+     "rows": 9,
+     "sha256": "7bc7666e535c8a6e89e06b452b85421eac807c8fe220cc25ed2cf9da891f1ed9",
+     "validated": 9,
+     "failed": 0,
+     "configurations": 3,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "serial-n.csv": {
+     "rows": 75,
+     "sha256": "7fa94ab75b9a8fba21a008a4ea7560e4582fe5a6102f46a6f09f67f6ff67027a",
+     "validated": 75,
+     "failed": 0,
+     "configurations": 25,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "serial-tiles.csv": {
+     "rows": 144,
+     "sha256": "06e24dc507f886087a8e2df7fc3f3f3906e1f2c75a926a7fb5fdabfab0c1e92c",
+     "validated": 144,
+     "failed": 0,
+     "configurations": 48,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "serial-w256.csv": {
+     "rows": 15,
+     "sha256": "3b95cb094a75ee69cb9ec34351a1bbceacc1bed0476371d8d216d7d0a85f26eb",
+     "validated": 15,
+     "failed": 0,
+     "configurations": 5,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    }
+   },
+   "validated": 342,
+   "failed": 18
+  },
+  "e2-strong-20261110T170339Z": {
+   "experiments": [
+    "e2-strong"
+   ],
+   "kind": "cpu",
+   "exit_status": "0",
+   "logged_failures": 0,
+   "job": "1537812",
+   "source_tag": "6d5b40617f",
+   "nodes": [
+    "cn-042.stdct.loc"
+   ],
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8452Y",
+   "allocated": {
+    "nodes": "1",
+    "cores": "72",
+    "gpus": "0"
+   },
+   "build": {
+    "alignment": "4096",
+    "extra_flags": "-mprefer-vector-width=512"
+   },
+   "configurations": {
+    "strong.csv": 84
+   },
+   "files": {
+    "strong.csv": {
+     "rows": 252,
+     "sha256": "ef4b087fda290e0006730c4b170369f24a7d27fd58d548b8ec58da19fb4507a3",
+     "validated": 252,
+     "failed": 0,
+     "configurations": 84,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    }
+   },
+   "validated": 252,
+   "failed": 0
+  },
+  "e3-single-20261110T170341Z": {
+   "experiments": [
+    "e3-single"
+   ],
+   "kind": "cpu",
+   "exit_status": "0",
+   "logged_failures": 0,
+   "job": "1537813",
+   "source_tag": "6d5b40617f",
+   "nodes": [
+    "cn-037.stdct.loc"
+   ],
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8452Y",
+   "allocated": {
+    "nodes": "1",
+    "cores": "72",
+    "gpus": "0"
+   },
+   "build": {
+    "alignment": "4096",
+    "extra_flags": "-mprefer-vector-width=512"
+   },
+   "configurations": {
+    "causal.csv": 14,
+    "gqa.csv": 18,
+    "hybrid.csv": 14,
+    "weak-rows.csv": 56,
+    "weak-work.csv": 32
+   },
+   "files": {
+    "causal.csv": {
+     "rows": 42,
+     "sha256": "8a0131d0107d54e40c50b112bafc5c319aaeb0d31c036f1571eacae65b8b60c9",
+     "validated": 42,
+     "failed": 0,
+     "configurations": 14,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "gqa.csv": {
+     "rows": 54,
+     "sha256": "a5444a05a3a6bf0357f8ade5ed1efabc40c4baeea2ebc1dbba3b15dcaa86ed0b",
+     "validated": 54,
+     "failed": 0,
+     "configurations": 18,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "hybrid.csv": {
+     "rows": 42,
+     "sha256": "28d86f5dc2d5c51e460398a949214277bde99a806dba3b66a048aac2846d9ecc",
+     "validated": 42,
+     "failed": 0,
+     "configurations": 14,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "weak-rows.csv": {
+     "rows": 168,
+     "sha256": "8e6ead67c41ca0e52593956b8884898d1912a9d9966b7ed279fc865bead66794",
+     "validated": 168,
+     "failed": 0,
+     "configurations": 56,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "weak-work.csv": {
+     "rows": 96,
+     "sha256": "5d32a5c1df9a9e59ae745a07d278fc788ce578c5cc9c3475d725700928fca231",
+     "validated": 96,
+     "failed": 0,
+     "configurations": 32,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    }
+   },
+   "validated": 402,
+   "failed": 0
+  },
+  "e5-fatcheck-20261111T001928Z": {
+   "experiments": [
+    "e5-fatcheck"
+   ],
+   "kind": "cpu",
+   "exit_status": "0",
+   "logged_failures": 0,
+   "job": "1538908",
+   "source_tag": "61f4285084",
+   "nodes": [
+    "cn-037.stdct.loc",
+    "cn-042.stdct.loc",
+    "cn-043.stdct.loc",
+    "cn-044.stdct.loc"
+   ],
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8452Y",
+   "allocated": {
+    "nodes": "4",
+    "cores": "288",
+    "gpus": "0"
+   },
+   "build": {
+    "alignment": "4096",
+    "extra_flags": "-mprefer-vector-width=512"
+   },
+   "configurations": {
+    "fatcheck-poll-r1.csv": 3,
+    "fatcheck-poll-r2.csv": 3,
+    "fatcheck-r1.csv": 9,
+    "fatcheck-r2.csv": 9
+   },
+   "files": {
+    "fatcheck-poll-r1.csv": {
+     "rows": 9,
+     "sha256": "26689e2e0ccf5948751cbe2075aab9c2ab53427966c886ca4c91cf19812a56db",
+     "validated": 9,
+     "failed": 0,
+     "configurations": 3,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "fatcheck-poll-r2.csv": {
+     "rows": 9,
+     "sha256": "461d4f04a4c4fa8a7a49c7f2a86db2a7c79e348f55e64038c69aef8ebd51716b",
+     "validated": 9,
+     "failed": 0,
+     "configurations": 3,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "fatcheck-r1.csv": {
+     "rows": 27,
+     "sha256": "e84da64308fab64e80b2f95bad56b61b06511015427458c1330be145fce65480",
+     "validated": 27,
+     "failed": 0,
+     "configurations": 9,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "fatcheck-r2.csv": {
+     "rows": 27,
+     "sha256": "8caec1b24dcca892762050d1a8bcd32ff940ca2a15eee244062e8089690e7531",
+     "validated": 27,
+     "failed": 0,
+     "configurations": 9,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    }
+   },
+   "validated": 72,
+   "failed": 0
+  },
+  "e7-hardware-20261110T170347Z": {
+   "experiments": [
+    "e7-hardware"
+   ],
+   "kind": "cpu",
+   "exit_status": "0",
+   "logged_failures": 0,
+   "job": "1537816",
+   "source_tag": "6d5b40617f",
+   "nodes": [
+    "cn-056.stdct.loc"
+   ],
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8452Y",
+   "allocated": {
+    "nodes": "1",
+    "cores": "72",
+    "gpus": "0"
+   },
+   "build": {
+    "alignment": "4096",
+    "extra_flags": "-mprefer-vector-width=512"
+   },
+   "configurations": {
+    "hardware-spread.csv": 4,
+    "hardware-w256.csv": 3,
+    "hardware.csv": 9
+   },
+   "files": {
+    "hardware-spread.csv": {
+     "rows": 12,
+     "sha256": "f90cb8d3f5a7625bc9ab563a3972d0d15c1c59687ef0eb18afdf1d1eb108fe98",
+     "validated": 12,
+     "failed": 0,
+     "configurations": 4,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "hardware-w256.csv": {
+     "rows": 9,
+     "sha256": "e9c383e80c1fcc42f638d7b26d50ca10a04bf7ba9b0b7cfbfaac17e8c92b54e2",
+     "validated": 9,
+     "failed": 0,
+     "configurations": 3,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "hardware.csv": {
+     "rows": 27,
+     "sha256": "c8226d57644fcf1e9f96773a3c9b4d799ed880fcef6970611f3c6a05c77d02a6",
+     "validated": 27,
+     "failed": 0,
+     "configurations": 9,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    }
+   },
+   "validated": 48,
+   "failed": 0
+  },
+  "e7-memory-20261110T170349Z": {
+   "experiments": [
+    "e7-memory"
+   ],
+   "kind": "cpu",
+   "exit_status": "0",
+   "logged_failures": 0,
+   "job": "1537817",
+   "source_tag": "6d5b40617f",
+   "nodes": [
+    "cn-058.stdct.loc"
+   ],
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8452Y",
+   "allocated": {
+    "nodes": "1",
+    "cores": "72",
+    "gpus": "0"
+   },
+   "build": {
+    "alignment": "4096",
+    "extra_flags": "-mprefer-vector-width=512"
+   },
+   "configurations": {
+    "memory.csv": 16
+   },
+   "files": {
+    "memory.csv": {
+     "rows": 16,
+     "sha256": "a069dc189b33fdc7462a20ddea824a1838472de1b957d30dc598ba20f4357c4a",
+     "validated": 0,
+     "failed": 0,
+     "configurations": 16,
+     "repetitions": [
+      1
+     ],
+     "warmup_seconds": [
+      0.0
+     ],
+     "protocol_exception": "peak-memory runs: one repetition, no warm-up, no validation copy"
+    }
+   },
+   "validated": 0,
+   "failed": 0
+  },
+  "e8-clock-20261111T031305Z": {
+   "experiments": [
+    "e8-clock"
+   ],
+   "kind": "cpu",
+   "exit_status": "0",
+   "logged_failures": 0,
+   "job": "1539666",
+   "source_tag": "70c478f422",
+   "nodes": [
+    "cn-058.stdct.loc"
+   ],
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8452Y",
+   "allocated": {
+    "nodes": "1",
+    "cores": "72",
+    "gpus": "0"
+   },
+   "build": {
+    "alignment": "4096",
+    "extra_flags": "-mprefer-vector-width=512"
+   },
+   "configurations": {
+    "clock.csv": 8,
+    "ring-exchange.csv": 36
+   },
+   "files": {
+    "clock.csv": {
+     "rows": 344,
+     "sha256": "524844769734004d0702e0532ddbdc5144fb798131b111df6e25a48833bc5150",
+     "validated": 344,
+     "failed": 0,
+     "configurations": 8,
+     "repetitions": [
+      2,
+      4,
+      8,
+      20,
+      40,
+      70,
+      130
+     ],
+     "warmup_seconds": [
+      0.0
+     ],
+     "protocol_exception": "fixed work under perf stat: fixed numbers of warm-up and measured repetitions per rank count, no time-based warm-up"
+    },
+    "ring-exchange.csv": {
+     "rows": 36,
+     "sha256": "c57f14920296398d603b69c66c5efd8fefe5e924b29ed22d8e33c2816b402c1c"
+    }
+   },
+   "validated": 344,
+   "failed": 0
+  },
+  "gpu-ladder-20261110T154830Z": {
+   "experiments": [
+    "gpu-ladder"
+   ],
+   "kind": "gpu",
+   "exit_status": "0",
+   "logged_failures": 0,
+   "job": "1537448",
+   "source_tag": "950c367da6",
+   "nodes": [
+    "gn-a40-037.stdct.loc"
+   ],
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8452Y",
+   "allocated": {
+    "nodes": "1",
+    "cores": "36",
+    "gpus": "1"
+   },
+   "configurations": {
+    "ladder-causal.csv": 4,
+    "ladder.csv": 20,
+    "real.csv": 9
+   },
+   "files": {
+    "ladder-causal.csv": {
+     "rows": 12,
+     "sha256": "63803419d0da67cadb80932bbba7796f2a046afd5faf4e23b2e18b3cfa3f09bd",
+     "validated": 12,
+     "failed": 0,
+     "configurations": 4,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": null
+    },
+    "ladder.csv": {
+     "rows": 60,
+     "sha256": "e158b7921db6ca336f6c38d199c8aa3416324a84ad03dc3634372bd9e9b9172a",
+     "validated": 60,
+     "failed": 0,
+     "configurations": 20,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": null
+    },
+    "real.csv": {
+     "rows": 27,
+     "sha256": "2e8f5af8120e66ec4030951b25b244171a20e7ee0b027193d19482ac12596891",
+     "validated": 27,
+     "failed": 0,
+     "configurations": 9,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": null
+    }
+   },
+   "validated": 99,
+   "failed": 0
+  },
+  "gpu-ring-1node-20261110T173731Z": {
+   "experiments": [
+    "gpu-ring-1node"
+   ],
+   "kind": "gpu",
+   "exit_status": "0",
+   "logged_failures": 0,
+   "job": "1538062",
+   "source_tag": "26bcb9e576",
+   "nodes": [
+    "gn-a40-035.stdct.loc"
+   ],
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8452Y",
+   "allocated": {
+    "nodes": "1",
+    "cores": "72",
+    "gpus": "2"
+   },
+   "configurations": {
+    "ring-causal-one-node.csv": 2,
+    "ring-one-node.csv": 30
+   },
+   "files": {
+    "ring-causal-one-node.csv": {
+     "rows": 6,
+     "sha256": "ce0c5b94f341275f1b51d324eff9914a8309cc72f4bd346e1d2f9690ed43f2d5",
+     "validated": 6,
+     "failed": 0,
+     "configurations": 2,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": null
+    },
+    "ring-one-node.csv": {
+     "rows": 90,
+     "sha256": "3ea36416e8fcf718cdb1388857066eec553b83f44b0c2d04f3c8373f0c287b0b",
+     "validated": 90,
+     "failed": 0,
+     "configurations": 30,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": null
+    }
+   },
+   "validated": 96,
+   "failed": 0
+  },
+  "gpu-ring-2node-20261111T000513Z": {
+   "experiments": [
+    "gpu-ring-2node"
+   ],
+   "kind": "gpu",
+   "exit_status": "0",
+   "logged_failures": 0,
+   "job": "1538896",
+   "source_tag": "43075d2e97",
+   "nodes": [
+    "gn-a40-009.stdct.loc",
+    "gn-a40-042.stdct.loc"
+   ],
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8452Y",
+   "allocated": {
+    "nodes": "2",
+    "cores": "72",
+    "gpus": "2"
+   },
+   "configurations": {
+    "ring-causal-two-nodes.csv": 2,
+    "ring-two-nodes.csv": 30
+   },
+   "files": {
+    "ring-causal-two-nodes.csv": {
+     "rows": 6,
+     "sha256": "dc4397e692c9be1f5c096a9587aa56e294531b223db97351321a0ed6713b87f3",
+     "validated": 6,
+     "failed": 0,
+     "configurations": 2,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": null
+    },
+    "ring-two-nodes.csv": {
+     "rows": 90,
+     "sha256": "b2e048c02094de54af8fa672e0e62c6be11731cf2bc1a7388a1c19cb1cd733b8",
+     "validated": 90,
+     "failed": 0,
+     "configurations": 30,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": null
+    }
+   },
+   "validated": 96,
+   "failed": 0
+  },
+  "gpu-ringcheck-20261110T173729Z": {
+   "experiments": [
+    "gpu-ringcheck"
+   ],
+   "kind": "gpu",
+   "exit_status": "0",
+   "logged_failures": 0,
+   "job": "1538061",
+   "source_tag": "26bcb9e576",
+   "nodes": [
+    "gn-a40-034.stdct.loc"
+   ],
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8452Y",
+   "allocated": {
+    "nodes": "1",
+    "cores": "36",
+    "gpus": "1"
+   },
+   "configurations": {
+    "ringcheck.csv": 17
+   },
+   "files": {
+    "ringcheck.csv": {
+     "rows": 51,
+     "sha256": "fb4f7cf5bf5128c3819d491a845511935cd53b4db8522ae87ffaacfff1245a7a",
+     "validated": 51,
+     "failed": 0,
+     "configurations": 17,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": null
+    }
+   },
+   "validated": 51,
+   "failed": 0
+  },
+  "gpu-validate-20261110T152555Z": {
+   "experiments": [
+    "gpu-validate"
+   ],
+   "kind": "gpu",
+   "exit_status": "0",
+   "logged_failures": 0,
+   "job": "1537339",
+   "source_tag": "0680e49ddb",
+   "nodes": [
+    "gn-a40-038.stdct.loc"
+   ],
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8452Y",
+   "allocated": {
+    "nodes": "1",
+    "cores": "36",
+    "gpus": "1"
+   },
+   "configurations": {
+    "gpu-ladder-pilot.csv": 13,
+    "gpu-validation.csv": 24
+   },
+   "files": {
+    "gpu-ladder-pilot.csv": {
+     "rows": 39,
+     "sha256": "a3d54608eeb36b1a31535dedeeba8415cfd3b99e1fe588b14b5bf4a523ebabe8",
+     "validated": 39,
+     "failed": 0,
+     "configurations": 13,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": null
+    },
+    "gpu-validation.csv": {
+     "rows": 48,
+     "sha256": "e3457e4c2253f71b26176844af343162a89af429b81e13f92139f9568d59fa71",
+     "validated": 48,
+     "failed": 0,
+     "configurations": 24,
+     "repetitions": [
+      2
+     ],
+     "warmup_seconds": null,
+     "protocol_exception": "GPU unit tests: every query row compared with fp64, two repetitions without warm-up; correctness only"
+    }
+   },
+   "validated": 87,
+   "failed": 0
+  },
+  "real-e11-20261110T155620Z": {
+   "experiments": [
+    "real-e11"
+   ],
+   "kind": "analysis",
+   "exit_status": "0",
+   "logged_failures": 0,
+   "job": "1537485",
+   "source_tag": "ab50eef687",
+   "nodes": [
+    "cn-051.stdct.loc"
+   ],
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8452Y",
+   "allocated": {
+    "nodes": "1",
+    "cores": "72",
+    "gpus": "0"
+   },
+   "configurations": {
+    "e11-N16384-layer00.csv": 28672,
+    "e11-N16384-layer11.csv": 28672,
+    "e11-N16384-layer23.csv": 28672,
+    "e11-N32768-layer00.csv": 28672,
+    "e11-N32768-layer11.csv": 28672,
+    "e11-N32768-layer23.csv": 28672,
+    "e11-N8192-layer00.csv": 28672,
+    "e11-N8192-layer11.csv": 28672,
+    "e11-N8192-layer23.csv": 28672
+   },
+   "files": {
+    "e11-N16384-layer00.csv": {
+     "rows": 28672,
+     "sha256": "574c67f43ba9d6e18be06a22195443b03a0a3bf1ce3e6855f9f3a12ec5f2987a"
+    },
+    "e11-N16384-layer11.csv": {
+     "rows": 28672,
+     "sha256": "420f1d93d84fd8406446acc793bf892fd599ecff523413e975d0da65ee5f0ba2"
+    },
+    "e11-N16384-layer23.csv": {
+     "rows": 28672,
+     "sha256": "ea6eb5cd0efb599bec7ebb090881e5dea17dc1e0c6be9de1b1dc818e209372c5"
+    },
+    "e11-N32768-layer00.csv": {
+     "rows": 28672,
+     "sha256": "a417b75daaa36f377ab3f27cb83f7400b304da2de8c699a28078878b7d84befb"
+    },
+    "e11-N32768-layer11.csv": {
+     "rows": 28672,
+     "sha256": "3a2ad59947d0b697fa00851271b1cea4d85bdc5ea40eb772f7538639d206f071"
+    },
+    "e11-N32768-layer23.csv": {
+     "rows": 28672,
+     "sha256": "6b553666d37aa5247c920db63ae077afee3548cfcd502d722395b1272f1ab545"
+    },
+    "e11-N8192-layer00.csv": {
+     "rows": 28672,
+     "sha256": "af8de0eb60d20b780f392dc0a75f29ed05d1c948ff8942611cd88add4909460f"
+    },
+    "e11-N8192-layer11.csv": {
+     "rows": 28672,
+     "sha256": "3ea6699c05f43678119ac6c1894101b0ab64a8d804f354bc20ac99dc0f53a124"
+    },
+    "e11-N8192-layer23.csv": {
+     "rows": 28672,
+     "sha256": "db73e2cf9e2299dc0db6f0a14d913f741a07c2658b8c4f71daf325bd9e28a9b2"
+    }
+   },
+   "validated": 0,
+   "failed": 0
+  },
+  "unit-tests-20261111T031309Z": {
+   "experiments": [
+    "unit-tests"
+   ],
+   "kind": "tests",
+   "exit_status": "0",
+   "logged_failures": 0,
+   "job": "1539667",
+   "source_tag": "70c478f422",
+   "nodes": [
+    "cn-070.stdct.loc"
+   ],
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8452Y",
+   "allocated": {
+    "nodes": "1",
+    "cores": "16",
+    "gpus": "0"
+   },
+   "configurations": {
+    "unit-tests.csv": 14
+   },
+   "tests": {
+    "ctest": "passed",
+    "core": "passed",
+    "mpi-P1": "passed",
+    "mpi-P2": "passed",
+    "mpi-P3": "passed",
+    "mpi-P4": "passed",
+    "mpi-P5": "passed",
+    "mpi-P6": "passed",
+    "mpi-P7": "passed",
+    "mpi-P8": "passed",
+    "analyze": "passed",
+    "scripts": "passed",
+    "cli": "passed",
+    "ringbench": "passed"
+   },
+   "submitted_tree_tag": "70c478f422",
+   "tested_source_equals_submitted_tree": true,
+   "files": {
+    "unit-tests.csv": {
+     "rows": 14,
+     "sha256": "3d182acd8c191e78f29209850a1c87c112cf62479b347b2b28392bef2d45ffed"
+    }
+   },
+   "validated": 0,
+   "failed": 0
+  },
+  "v1-single-20261110T173725Z": {
+   "experiments": [
+    "e5-model",
+    "real-data"
+   ],
+   "kind": "cpu",
+   "exit_status": "0",
+   "logged_failures": 0,
+   "job": "1538059",
+   "source_tag": "26bcb9e576",
+   "nodes": [
+    "cn-037.stdct.loc"
+   ],
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8452Y",
+   "allocated": {
+    "nodes": "1",
+    "cores": "72",
+    "gpus": "0"
+   },
+   "build": {
+    "alignment": "4096",
+    "extra_flags": "-mprefer-vector-width=512"
+   },
+   "configurations": {
+    "e10-real.csv": 16,
+    "model-fat.csv": 32,
+    "model-thin.csv": 35,
+    "netbench-node.csv": 38,
+    "v7-variants.csv": 15,
+    "v7.csv": 9
+   },
+   "files": {
+    "e10-real.csv": {
+     "rows": 48,
+     "sha256": "558761971ec888e410de7a68a402204976de4b9369284baa021765f5793bde3f",
+     "validated": 48,
+     "failed": 0,
+     "configurations": 16,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "model-fat.csv": {
+     "rows": 96,
+     "sha256": "0b3c9083c4c61d1a827d9900dfb94f38f9860cbcd0afea22e6bc12b585123a83",
+     "validated": 96,
+     "failed": 0,
+     "configurations": 32,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "model-thin.csv": {
+     "rows": 105,
+     "sha256": "82e792b1d64d1b17648ffd29ca6026ab2be950fcd2505e03e0c41d47f2ddaefa",
+     "validated": 105,
+     "failed": 0,
+     "configurations": 35,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "netbench-node.csv": {
+     "rows": 38,
+     "sha256": "b0dbf34112b2fc987491018d7410f470da1d2aad620913c708d58e8b189d51cd"
+    },
+    "v7-variants.csv": {
+     "rows": 45,
+     "sha256": "5f530b0134cc3d8f502928ae835c64977d63bb89781245d1a52be2bcc902e1ea",
+     "validated": 45,
+     "failed": 0,
+     "configurations": 15,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "v7.csv": {
+     "rows": 27,
+     "sha256": "01889f5ec4085ec79e109fb088834a784a8379a922749f35355963a18f469a46",
+     "validated": 27,
+     "failed": 0,
+     "configurations": 9,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    }
+   },
+   "validated": 321,
+   "failed": 0
+  },
+  "v2-multi-20261110T173727Z": {
+   "experiments": [
+    "e2-strongx",
+    "e3-multi"
+   ],
+   "kind": "cpu",
+   "exit_status": "0",
+   "logged_failures": 0,
+   "job": "1538060",
+   "source_tag": "26bcb9e576",
+   "nodes": [
+    "cn-037.stdct.loc",
+    "cn-042.stdct.loc",
+    "cn-043.stdct.loc",
+    "cn-044.stdct.loc"
+   ],
+   "cpu_model": "Intel(R) Xeon(R) Platinum 8452Y",
+   "allocated": {
+    "nodes": "4",
+    "cores": "288",
+    "gpus": "0"
+   },
+   "build": {
+    "alignment": "4096",
+    "extra_flags": "-mprefer-vector-width=512"
+   },
+   "configurations": {
+    "causal.csv": 7,
+    "comm-fat-poll.csv": 10,
+    "comm-fat.csv": 20,
+    "comm-order.csv": 2,
+    "comm-packed.csv": 2,
+    "comm-poll.csv": 20,
+    "comm-small-c.csv": 35,
+    "comm-spread.csv": 2,
+    "comm-trace.csv": 3,
+    "gqa.csv": 18,
+    "hybrid.csv": 14,
+    "netbench.csv": 76,
+    "strong.csv": 48,
+    "weak-rows.csv": 16,
+    "weak-work.csv": 8
+   },
+   "files": {
+    "causal.csv": {
+     "rows": 21,
+     "sha256": "4fb17c0b69e04e596cdfffc5f4cc484060e5bbad7301389e991c4cb2c06c8aec",
+     "validated": 21,
+     "failed": 0,
+     "configurations": 7,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "comm-fat-poll.csv": {
+     "rows": 30,
+     "sha256": "87fa6b8296648d30fbc1e2d57e8f287dbc484217d549ea55347e63df570ff5f7",
+     "validated": 30,
+     "failed": 0,
+     "configurations": 10,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "comm-fat.csv": {
+     "rows": 60,
+     "sha256": "3faa0cc587af8242b97a269dee21116cc5fd51b13884c5a83e6447182d5a6a0e",
+     "validated": 60,
+     "failed": 0,
+     "configurations": 20,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "comm-order.csv": {
+     "rows": 6,
+     "sha256": "94d241b9c1f7cda4fe9ccdc8818fe76d0ed3095eb061f2e6824feb71408dd65b",
+     "validated": 6,
+     "failed": 0,
+     "configurations": 2,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "comm-packed.csv": {
+     "rows": 6,
+     "sha256": "62e30ab62c6d6dfd42fe3fc74d49a9f7e8329eb7ac275ac91dd36bd67ab91c42",
+     "validated": 6,
+     "failed": 0,
+     "configurations": 2,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "comm-poll.csv": {
+     "rows": 60,
+     "sha256": "0061752fb32fd8c63d6024ca8b1ae440ea2828d5b31620b500f83be3fc4cf503",
+     "validated": 60,
+     "failed": 0,
+     "configurations": 20,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "comm-small-c.csv": {
+     "rows": 105,
+     "sha256": "e44ffb421d6934f7e119bfb8971a55aec7c93221e22fd0ac9f5d4228eef041ca",
+     "validated": 105,
+     "failed": 0,
+     "configurations": 35,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "comm-spread.csv": {
+     "rows": 6,
+     "sha256": "a5406973ba9b6195c8fb0274b271d25392f7318fbc04c2e2ded3e925b85d5cc2",
+     "validated": 6,
+     "failed": 0,
+     "configurations": 2,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "comm-trace.csv": {
+     "rows": 9,
+     "sha256": "4d91356e7a1e4f2a8402d85a8eded9b962b200481fcb1cb757a32274fa052d95",
+     "validated": 9,
+     "failed": 0,
+     "configurations": 3,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "gqa.csv": {
+     "rows": 54,
+     "sha256": "f50083ea8117bf1319161bbf8e15d69761a1e21dc90f92044c9f00ef6ab13e82",
+     "validated": 54,
+     "failed": 0,
+     "configurations": 18,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "hybrid.csv": {
+     "rows": 42,
+     "sha256": "cb7ba4aa41315298a7e3beb6bafbb298143abb9458fe72000dbf3e7e69746cd1",
+     "validated": 42,
+     "failed": 0,
+     "configurations": 14,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "netbench.csv": {
+     "rows": 76,
+     "sha256": "cff0eac5ed52ef01f787d5e437915d296438ead872e3e54ecb1ce42b54557dbf"
+    },
+    "strong.csv": {
+     "rows": 144,
+     "sha256": "3a6457416389718e21b7e8b0b142dfc0a7d0ac12234c044bcdac9685043ed834",
+     "validated": 144,
+     "failed": 0,
+     "configurations": 48,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "weak-rows.csv": {
+     "rows": 48,
+     "sha256": "7813dbc4872989c640217bb13a961020b7dcdecad43d349560235862eda24f10",
+     "validated": 48,
+     "failed": 0,
+     "configurations": 16,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    },
+    "weak-work.csv": {
+     "rows": 24,
+     "sha256": "cca03efb7a0d87e2a5d71281b57211a5eab2d9c09b044ade8d4cf687ee14804f",
+     "validated": 24,
+     "failed": 0,
+     "configurations": 8,
+     "repetitions": [
+      3
+     ],
+     "warmup_seconds": [
+      5.0
+     ]
+    }
+   },
+   "validated": 615,
+   "failed": 0
+  }
+ }
+}

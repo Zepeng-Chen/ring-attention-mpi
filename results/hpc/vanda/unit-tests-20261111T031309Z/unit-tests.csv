@@ -1,0 +1,15 @@
+test,result
+ctest,passed
+core,passed
+mpi-P1,passed
+mpi-P2,passed
+mpi-P3,passed
+mpi-P4,passed
+mpi-P5,passed
+mpi-P6,passed
+mpi-P7,passed
+mpi-P8,passed
+analyze,passed
+scripts,passed
+cli,passed
+ringbench,passed

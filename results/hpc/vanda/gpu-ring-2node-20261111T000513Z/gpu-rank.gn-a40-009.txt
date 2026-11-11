@@ -1,0 +1,2 @@
+host=gn-a40-009 vnodes=[1] visible GPUs = allocated vnode(s) [1], rule confirmed; environment unchanged
+  gpu 0 GPU-f1f03052-5d59-a3b3-4293-6026f63f1d04 bus=00000000:AE:00.0 numa=1

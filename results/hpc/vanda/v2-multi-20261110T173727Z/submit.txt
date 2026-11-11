@@ -1,0 +1,1 @@
+qsub -P\ personal-USER -l select=1:ncpus=72:mpiprocs=72:ompthreads=1:host=cn-037+1:ncpus=72:mpiprocs=72:ompthreads=1:host=cn-042+1:ncpus=72:mpiprocs=72:ompthreads=1:host=cn-043+1:ncpus=72:mpiprocs=72:ompthreads=1:host=cn-044 -l walltime=00:57:00 -W depend=afterok:1538059.stdct-mgmt-02  scripts/hpc/jobs/experiment.pbs

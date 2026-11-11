@@ -1,0 +1,4 @@
+oracle: 3072 values compared
+underflowing window: 6 values compared
+zero exact output: 6 values compared
+all analyzer tests passed

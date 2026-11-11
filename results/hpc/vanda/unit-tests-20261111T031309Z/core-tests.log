@@ -1,0 +1,104 @@
+V1/V3/V4 bk=1 basic: max_abs=5.0766e-08 max_rel=0.000113731 nonfinite=0 failed=0
+V1/V3/V4 bk=8 basic: max_abs=5.0766e-08 max_rel=0.000133054 nonfinite=0 failed=0
+V1/V3/V4 bk=37 basic: max_abs=3.61359e-08 max_rel=0.000113621 nonfinite=0 failed=0
+V1/V3/V4 bk=64 basic: max_abs=3.61359e-08 max_rel=0.000113621 nonfinite=0 failed=0
+V8 reversed variable blocks basic: max_abs=5.00382e-08 max_rel=0.000113842 nonfinite=0 failed=0
+V1/V3/V4 bk=1 tuned: max_abs=4.31015e-08 max_rel=0.00012538 nonfinite=0 failed=0
+V1/V3/V4 bk=8 tuned: max_abs=5.30615e-08 max_rel=0.00012527 nonfinite=0 failed=0
+V1/V3/V4 bk=37 tuned: max_abs=3.81603e-08 max_rel=0.000103692 nonfinite=0 failed=0
+V1/V3/V4 bk=64 tuned: max_abs=3.81603e-08 max_rel=0.000103692 nonfinite=0 failed=0
+V8 reversed variable blocks tuned: max_abs=5.67528e-08 max_rel=0.000133054 nonfinite=0 failed=0
+V1/V3/V4 bk=1 basic: max_abs=1.16928e-07 max_rel=0.000211538 nonfinite=0 failed=0
+V1/V3/V4 bk=8 basic: max_abs=1.16928e-07 max_rel=4.76158e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=37 basic: max_abs=1.16928e-07 max_rel=4.76158e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=64 basic: max_abs=1.16928e-07 max_rel=4.76158e-05 nonfinite=0 failed=0
+V8 reversed variable blocks basic: max_abs=6.35178e-08 max_rel=8.22045e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=1 tuned: max_abs=7.65224e-08 max_rel=0.000112723 nonfinite=0 failed=0
+V1/V3/V4 bk=8 tuned: max_abs=7.65224e-08 max_rel=8.45969e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=37 tuned: max_abs=7.65224e-08 max_rel=8.47009e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=64 tuned: max_abs=7.65224e-08 max_rel=8.47009e-05 nonfinite=0 failed=0
+V8 reversed variable blocks tuned: max_abs=7.65224e-08 max_rel=0.000180812 nonfinite=0 failed=0
+V1/V3/V4 bk=1 basic: max_abs=1.04483e-07 max_rel=3.51679e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=8 basic: max_abs=6.90859e-08 max_rel=3.51679e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=37 basic: max_abs=7.55907e-08 max_rel=3.51679e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=64 basic: max_abs=7.55907e-08 max_rel=3.51679e-05 nonfinite=0 failed=0
+V8 reversed variable blocks basic: max_abs=9.32034e-08 max_rel=1.53318e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=1 tuned: max_abs=1.04483e-07 max_rel=8.99029e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=8 tuned: max_abs=7.65224e-08 max_rel=8.99029e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=37 tuned: max_abs=7.65224e-08 max_rel=8.99029e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=64 tuned: max_abs=7.65224e-08 max_rel=8.99029e-05 nonfinite=0 failed=0
+V8 reversed variable blocks tuned: max_abs=1.04483e-07 max_rel=7.00668e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=1 basic: max_abs=1.16928e-07 max_rel=4.76158e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=8 basic: max_abs=1.16928e-07 max_rel=4.76158e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=37 basic: max_abs=1.16928e-07 max_rel=4.76158e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=64 basic: max_abs=1.16928e-07 max_rel=4.76158e-05 nonfinite=0 failed=0
+V8 reversed variable blocks basic: max_abs=6.35178e-08 max_rel=1.24501e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=1 tuned: max_abs=9.04239e-08 max_rel=4.76158e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=8 tuned: max_abs=7.65224e-08 max_rel=4.76158e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=37 tuned: max_abs=7.65224e-08 max_rel=4.76158e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=64 tuned: max_abs=7.65224e-08 max_rel=4.76158e-05 nonfinite=0 failed=0
+V8 reversed variable blocks tuned: max_abs=7.65224e-08 max_rel=2.54142e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=1 basic: max_abs=1.71334e-06 max_rel=9.94703e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=8 basic: max_abs=1.71334e-06 max_rel=9.94703e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=37 basic: max_abs=1.71334e-06 max_rel=9.94703e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=64 basic: max_abs=1.71334e-06 max_rel=9.94703e-05 nonfinite=0 failed=0
+V8 reversed variable blocks basic: max_abs=1.74314e-06 max_rel=9.94703e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=1 tuned: max_abs=1.71334e-06 max_rel=0.000115549 nonfinite=0 failed=0
+V1/V3/V4 bk=8 tuned: max_abs=1.71334e-06 max_rel=0.000115549 nonfinite=0 failed=0
+V1/V3/V4 bk=37 tuned: max_abs=1.74314e-06 max_rel=0.000115549 nonfinite=0 failed=0
+V1/V3/V4 bk=64 tuned: max_abs=1.74314e-06 max_rel=0.000115549 nonfinite=0 failed=0
+V8 reversed variable blocks tuned: max_abs=1.74314e-06 max_rel=0.000121022 nonfinite=0 failed=0
+V1/V3/V4 bk=1 basic: max_abs=1.01377e-06 max_rel=0.00051946 nonfinite=0 failed=0
+V1/V3/V4 bk=8 basic: max_abs=1.01377e-06 max_rel=0.00051946 nonfinite=0 failed=0
+V1/V3/V4 bk=37 basic: max_abs=1.01377e-06 max_rel=0.00051946 nonfinite=0 failed=0
+V1/V3/V4 bk=64 basic: max_abs=1.01377e-06 max_rel=0.00051946 nonfinite=0 failed=0
+V8 reversed variable blocks basic: max_abs=1.01377e-06 max_rel=0.000497102 nonfinite=0 failed=0
+V1/V3/V4 bk=1 tuned: max_abs=7.08443e-07 max_rel=0.00051946 nonfinite=0 failed=0
+V1/V3/V4 bk=8 tuned: max_abs=7.08443e-07 max_rel=0.00051952 nonfinite=0 failed=0
+V1/V3/V4 bk=37 tuned: max_abs=7.08443e-07 max_rel=0.00051952 nonfinite=0 failed=0
+V1/V3/V4 bk=64 tuned: max_abs=7.08443e-07 max_rel=0.00051952 nonfinite=0 failed=0
+V8 reversed variable blocks tuned: max_abs=7.23917e-07 max_rel=0.000497102 nonfinite=0 failed=0
+V1/V3/V4 bk=1 basic: max_abs=8.53621e-07 max_rel=1.4865e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=8 basic: max_abs=8.53621e-07 max_rel=1.4865e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=37 basic: max_abs=8.53621e-07 max_rel=1.4865e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=64 basic: max_abs=8.53621e-07 max_rel=1.4865e-05 nonfinite=0 failed=0
+V8 reversed variable blocks basic: max_abs=9.13225e-07 max_rel=1.47863e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=1 tuned: max_abs=9.19924e-07 max_rel=2.05583e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=8 tuned: max_abs=9.19924e-07 max_rel=2.05583e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=37 tuned: max_abs=9.19924e-07 max_rel=2.05583e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=64 tuned: max_abs=9.19924e-07 max_rel=2.05583e-05 nonfinite=0 failed=0
+V8 reversed variable blocks tuned: max_abs=9.19924e-07 max_rel=2.05583e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=1 basic: max_abs=1.07071e-06 max_rel=0.000279559 nonfinite=0 failed=0
+V1/V3/V4 bk=8 basic: max_abs=1.07071e-06 max_rel=0.000263596 nonfinite=0 failed=0
+V1/V3/V4 bk=37 basic: max_abs=1.07071e-06 max_rel=0.000263596 nonfinite=0 failed=0
+V1/V3/V4 bk=64 basic: max_abs=1.07071e-06 max_rel=0.000263596 nonfinite=0 failed=0
+V8 reversed variable blocks basic: max_abs=1.0763e-06 max_rel=0.000266789 nonfinite=0 failed=0
+V1/V3/V4 bk=1 tuned: max_abs=5.14391e-07 max_rel=8.94466e-05 nonfinite=0 failed=0
+V1/V3/V4 bk=8 tuned: max_abs=5.6569e-07 max_rel=0.000105513 nonfinite=0 failed=0
+V1/V3/V4 bk=37 tuned: max_abs=5.6569e-07 max_rel=0.000105513 nonfinite=0 failed=0
+V1/V3/V4 bk=64 tuned: max_abs=5.6569e-07 max_rel=0.000105513 nonfinite=0 failed=0
+V8 reversed variable blocks tuned: max_abs=5.35888e-07 max_rel=0.000100363 nonfinite=0 failed=0
+V2 N=1000 tail: max_abs=2.03982e-08 max_rel=2.51215e-06 nonfinite=0 failed=0
+unsorted key fallback: max_abs=9.28216e-08 max_rel=6.81408e-07 nonfinite=0 failed=0
+V5 replicated GQA: max_abs=8.06973e-08 max_rel=1.44568e-05 nonfinite=0 failed=0
+extreme weight tail gap=87.000000 basic: max_abs=6.00972e-08 max_rel=3.65152e-08 nonfinite=0 failed=0
+extreme weight tail gap=87.000000 basic: max_abs=6.00972e-08 max_rel=3.65152e-08 nonfinite=0 failed=0
+extreme weight tail gap=87.000000 tuned: max_abs=6.00972e-08 max_rel=3.65152e-08 nonfinite=0 failed=0
+extreme weight tail gap=87.000000 tuned: max_abs=6.00972e-08 max_rel=3.65152e-08 nonfinite=0 failed=0
+extreme weight tail gap=88.000000 basic: max_abs=6.28562e-08 max_rel=1.03816e-07 nonfinite=0 failed=0
+extreme weight tail gap=88.000000 basic: max_abs=6.28562e-08 max_rel=1.03816e-07 nonfinite=0 failed=0
+extreme weight tail gap=88.000000 tuned: max_abs=6.28562e-08 max_rel=1.03816e-07 nonfinite=0 failed=0
+extreme weight tail gap=88.000000 tuned: max_abs=6.28562e-08 max_rel=1.03816e-07 nonfinite=0 failed=0
+extreme weight tail gap=100.000000 basic: max_abs=6.34298e-08 max_rel=0.0170507 nonfinite=0 failed=0
+extreme weight tail gap=100.000000 basic: max_abs=6.34298e-08 max_rel=0.0170507 nonfinite=0 failed=0
+extreme weight tail gap=100.000000 tuned: max_abs=6.34298e-08 max_rel=0.0170507 nonfinite=0 failed=0
+extreme weight tail gap=100.000000 tuned: max_abs=6.34298e-08 max_rel=0.0170507 nonfinite=0 failed=0
+extreme weight tail gap=104.000000 basic: max_abs=6.81356e-08 max_rel=1 nonfinite=0 failed=0
+extreme weight tail gap=104.000000 basic: max_abs=6.81356e-08 max_rel=1 nonfinite=0 failed=0
+extreme weight tail gap=104.000000 tuned: max_abs=6.81356e-08 max_rel=1 nonfinite=0 failed=0
+extreme weight tail gap=104.000000 tuned: max_abs=6.81356e-08 max_rel=1 nonfinite=0 failed=0
+extreme weight tail gap=200.000000 basic: max_abs=1.3839e-49 max_rel=1.3839e-37 nonfinite=0 failed=0
+extreme weight tail gap=200.000000 basic: max_abs=1.3839e-49 max_rel=1.3839e-37 nonfinite=0 failed=0
+extreme weight tail gap=200.000000 tuned: max_abs=1.3839e-49 max_rel=1.3839e-37 nonfinite=0 failed=0
+extreme weight tail gap=200.000000 tuned: max_abs=1.3839e-49 max_rel=1.3839e-37 nonfinite=0 failed=0
+vector-width extreme weight tails: max_abs=1.14174e-06 max_rel=0.0170507 nonfinite=0 failed=0

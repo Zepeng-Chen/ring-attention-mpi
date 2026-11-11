@@ -1,0 +1,1 @@
+qsub -P personal-USER -l select=1:ncpus=72:mpiprocs=72:ompthreads=1:host=cn-038 -l walltime=00:15:00  scripts/hpc/jobs/experiment.pbs

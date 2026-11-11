@@ -1,0 +1,10 @@
+index, name, memory.total [MiB], driver_version
+0, NVIDIA A40, 46068 MiB, 575.57.08
+Cuda compilation tools, release 12.9, V12.9.86
+Build cuda_12.9.r12.9/compiler.36037853_0
+mpirun (Open MPI) 4.1.9a1
+g++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)
+          MPI extensions: affinity, cuda, pcollreq
+                 MCA btl: smcuda (MCA v2.1.0, API v3.1.0, Component v4.1.9)
+                 MCA pml: ucx (MCA v2.1.0, API v2.0.0, Component v4.1.9)
+suite=ringcheck nodes=1 gpus_on_this_node=1 topology=one-node

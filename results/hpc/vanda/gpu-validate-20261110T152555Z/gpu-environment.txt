@@ -1,0 +1,30 @@
+index, name, memory.total [MiB], driver_version
+0, NVIDIA A40, 46068 MiB, 575.57.08
+/cm/shared/apps/nvhpc/26.1/Linux_x86_64/26.1/compilers/bin/nvcc
+/app1/admin/shared/apps/nvhpc/26.1/Linux_x86_64/26.1/comm_libs/12.9/hpcx/hpcx-2.25.1/ompi/bin/mpicxx
+/app1/admin/shared/apps/nvhpc/26.1/Linux_x86_64/26.1/comm_libs/12.9/hpcx/hpcx-2.25.1/ompi/bin/mpirun
+/app1/ebapps/arches/flat-avx2/software/CMake/3.31.8-GCCcore-14.3.0/bin/cmake
+/bin/g++
+Cuda compilation tools, release 12.9, V12.9.86
+Build cuda_12.9.r12.9/compiler.36037853_0
+g++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)
+mpirun (Open MPI) 4.1.9a1
+  Configure command line: 'CC=gcc' 'CXX=g++' 'FC=nvfortran' 'LDFLAGS=-Wl,-rpath-link=/proj/nv/libraries/Linux_
+          MPI extensions: affinity, cuda, pcollreq
+                 MCA btl: self (MCA v2.1.0, API v3.1.0, Component v4.1.9)
+                 MCA btl: tcp (MCA v2.1.0, API v3.1.0, Component v4.1.9)
+                 MCA btl: smcuda (MCA v2.1.0, API v3.1.0, Component v4.1.9)
+                 MCA btl: vader (MCA v2.1.0, API v3.1.0, Component v4.1.9)
+                MCA coll: cuda (MCA v2.1.0, API v2.0.0, Component v4.1.9)
+                 MCA osc: sm (MCA v2.1.0, API v3.0.0, Component v4.1.9)
+                 MCA osc: rdma (MCA v2.1.0, API v3.0.0, Component v4.1.9)
+                 MCA osc: ucx (MCA v2.1.0, API v3.0.0, Component v4.1.9)
+                 MCA osc: pt2pt (MCA v2.1.0, API v3.0.0, Component v4.1.9)
+                 MCA osc: monitoring (MCA v2.1.0, API v3.0.0, Component v4.1.9)
+                 MCA pml: v (MCA v2.1.0, API v2.0.0, Component v4.1.9)
+                 MCA pml: ucx (MCA v2.1.0, API v2.0.0, Component v4.1.9)
+                 MCA pml: monitoring (MCA v2.1.0, API v2.0.0, Component v4.1.9)
+                 MCA pml: cm (MCA v2.1.0, API v2.0.0, Component v4.1.9)
+                 MCA pml: ob1 (MCA v2.1.0, API v2.0.0, Component v4.1.9)
+/cm/shared/apps/nvhpc/26.1/Linux_x86_64/26.1/compilers/bin/ncu
+/cm/shared/apps/nvhpc/26.1/Linux_x86_64/26.1/compilers/bin/nsys

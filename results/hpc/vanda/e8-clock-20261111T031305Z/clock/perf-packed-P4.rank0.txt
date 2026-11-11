@@ -1,0 +1,5 @@
+# started on Wed Nov 11 11:15:55 2026
+
+137562491057,,cycles:u,46132477135,100.00,2.982,GHz
+457249491555,,instructions:u,46132477135,100.00,3.32,insn per cycle
+46132.48,msec,task-clock:u,46132477135,100.00,0.995,CPUs utilized

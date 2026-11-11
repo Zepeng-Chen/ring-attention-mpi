@@ -1,0 +1,1 @@
+qsub -P personal-USER -l select=1:ncpus=72:mpiprocs=72:ompthreads=1:host=cn-051 -l walltime=00:20:00  scripts/hpc/jobs/real_data.pbs

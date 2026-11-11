@@ -1,0 +1,1 @@
+qsub -P personal-USER -l select=2:ncpus=36:mpiprocs=1:ompthreads=36:ngpus=1:mem=240G -l place=scatter -l walltime=00:13:00  scripts/hpc/jobs/gpu_experiment.pbs

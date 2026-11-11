@@ -1,0 +1,2 @@
+gn-a40-009.stdct.loc
+gn-a40-042.stdct.loc

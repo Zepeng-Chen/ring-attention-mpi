@@ -1,0 +1,17 @@
+# started on Wed Nov 11 01:04:44 2026
+
+
+ Performance counter stats for '/home/svu/USER/ring-attention/build/6d5b40617f-gcc-native-w512-a16/attn_bench --cluster vanda --purpose align-perf-16 --impl S1 --kernel tuned --block-q 128 --block-k 96 --N 16384 --warmup 1 --reps 3 --validate 0 --csv /home/svu/USER/ring-attention/runs/e0-align-20261110T170343Z/align-perf.csv':
+
+    20,841,912,838      cycles:u                                                              
+    45,133,263,342      instructions:u                   #    2.17  insn per cycle            
+       794,306,698      ld_blocks.no_sr:u                                                     
+         2,664,195      ld_blocks.store_forward:u                                             
+       241,361,248      ld_blocks.address_alias:u                                             
+
+       8.173950032 seconds time elapsed
+
+       7.806332000 seconds user
+       0.079496000 seconds sys
+
+

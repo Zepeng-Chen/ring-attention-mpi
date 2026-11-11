@@ -1,0 +1,24 @@
+ok    vnodes of a two-node job (wrapped line)
+ok    vnodes of a one-node two-GPU job
+ok    two GPUs visible, vnode 0 allocated -> GPU on NUMA 0
+ok    two GPUs visible, vnode 1 allocated -> GPU on NUMA 1
+ok    control group shows the allocated GPU -> unchanged
+ok    control group shows a GPU on the other NUMA node -> stop
+ok    no GPU visible -> stop
+ok    host without a recorded vnode -> unchanged
+ok    both vnodes of the node allocated -> unchanged
+ok    NUMA node of the devices unknown -> stop
+ok    NUMA node unknown but the control group already restricts -> unchanged
+ok    census names the selection
+ok    the decision is recorded in the run directory
+ok    launcher: first candidate when mpirun sees the allocation
+ok    launcher: node file when mpirun does not see the allocation
+ok    launcher: both nodes counted
+ok    prologue: a job whose vnodes carry memory runs
+ok    prologue: a job whose vnodes lost their memory stops
+ok    lock: free lock is taken and names its holder
+ok    lock: held by a running job -> give up, lock untouched
+ok    lock: holder finished -> taken over
+ok    lock: released by its holder
+
+all job-script tests passed

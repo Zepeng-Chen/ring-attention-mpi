@@ -1,0 +1,14 @@
+Internal ctest changing into directory: /home/svu/USER/ring-attention/build/70c478f422-gcc-native-w512
+Test project /home/svu/USER/ring-attention/build/70c478f422-gcc-native-w512
+    Start 1: attention_correctness
+1/4 Test #1: attention_correctness ............   Passed    0.05 sec
+    Start 2: core_validation
+2/4 Test #2: core_validation ..................   Passed    0.05 sec
+    Start 3: mpi_validation_1
+3/4 Test #3: mpi_validation_1 .................   Passed   10.07 sec
+    Start 4: mpi_validation_2
+4/4 Test #4: mpi_validation_2 .................   Passed    3.55 sec
+
+100% tests passed, 0 tests failed out of 4
+
+Total Test time (real) =  13.77 sec

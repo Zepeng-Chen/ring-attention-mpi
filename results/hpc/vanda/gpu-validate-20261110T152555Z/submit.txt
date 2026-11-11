@@ -1,0 +1,1 @@
+qsub -P personal-USER -l select=1:ncpus=36:mpiprocs=1:ompthreads=36:ngpus=1 -l walltime=00:45:00  scripts/hpc/jobs/gpu_validate.pbs

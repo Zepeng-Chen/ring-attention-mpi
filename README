@@ -212,6 +212,14 @@ hardware and of the inputs are typed). One chain produces it:
    this and then LaTeX, and stops if a number has no data, a figure is missing or
    a reference is undefined (`--draft` only lists such problems).
 
+`results/` holds every run retrieved from the cluster and is not under version
+control, with one exception: the files that the report is computed from
+(`python3 scripts/published_results.py` lists them in
+`results/published_files.txt`) are committed, so that `scripts/build_report.sh`
+works on a clone. In these copies the name of the cluster account has been
+replaced by `USER` wherever a path or a command line recorded it; nothing else
+differs from the retrieved files.
+
 Figures are drawn in the typeface of the report at their final size and are
 included without scaling.
 

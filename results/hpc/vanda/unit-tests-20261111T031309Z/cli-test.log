@@ -1,0 +1,14 @@
+ok    plain values
+ok    exponent notation
+ok    infinite warm-up time
+ok    NaN warm-up time
+ok    negative warm-up time
+ok    warm-up time with trailing text
+ok    infinite tolerance scale
+ok    NaN tolerance scale
+ok    infinite alpha
+ok    integer with trailing text
+ok    fractional repetition count
+ok    unknown option
+
+all option-parsing tests passed

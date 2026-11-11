@@ -1,0 +1,25 @@
+index, name, memory.total [MiB], driver_version
+0, NVIDIA A40, 46068 MiB, 575.57.08
+Cuda compilation tools, release 12.9, V12.9.86
+Build cuda_12.9.r12.9/compiler.36037853_0
+mpirun (Open MPI) 4.1.9a1
+g++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)
+          MPI extensions: affinity, cuda, pcollreq
+                 MCA btl: smcuda (MCA v2.1.0, API v3.1.0, Component v4.1.9)
+                 MCA pml: ucx (MCA v2.1.0, API v2.0.0, Component v4.1.9)
+vnodes: gn-a40-009:1,gn-a40-042:1
+Authorized users only. All activity may be monitored and reported.
+host=gn-a40-009 vnodes=[1] visible GPUs = allocated vnode(s) [1], rule confirmed; environment unchanged
+  gpu 0 GPU-f1f03052-5d59-a3b3-4293-6026f63f1d04 bus=00000000:AE:00.0 numa=1
+  gn-a40-009 state: 0, GPU-f1f03052-5d59-a3b3-4293-6026f63f1d04, 0 MiB, 0 %
+host=gn-a40-042 vnodes=[1] visible GPUs = allocated vnode(s) [1], rule confirmed; environment unchanged
+  gpu 0 GPU-76069799-9d28-bcad-dcc4-a1cae861bc79 bus=00000000:AE:00.0 numa=1
+  gn-a40-042 state: 0, GPU-76069799-9d28-bcad-dcc4-a1cae861bc79, 0 MiB, 0 %
+suite=ring nodes=2 gpus_on_this_node=1 topology=two-nodes
+Authorized users only. All activity may be monitored and reported.
+host=gn-a40-009 vnodes=[1] visible GPUs = allocated vnode(s) [1], rule confirmed; environment unchanged
+  gpu 0 GPU-f1f03052-5d59-a3b3-4293-6026f63f1d04 bus=00000000:AE:00.0 numa=1
+  gn-a40-009 state: 0, GPU-f1f03052-5d59-a3b3-4293-6026f63f1d04, 0 MiB, 0 %
+host=gn-a40-042 vnodes=[1] visible GPUs = allocated vnode(s) [1], rule confirmed; environment unchanged
+  gpu 0 GPU-76069799-9d28-bcad-dcc4-a1cae861bc79 bus=00000000:AE:00.0 numa=1
+  gn-a40-042 state: 0, GPU-76069799-9d28-bcad-dcc4-a1cae861bc79, 0 MiB, 0 %
