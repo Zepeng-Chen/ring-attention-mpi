@@ -1,0 +1,63 @@
+#!/bin/bash
+# First job on a new cluster: build, correctness, vectorisation report and a
+# small tile-size pilot on one exclusive node. Pilot timings choose parameters;
+# they are not the formal results.
+source "$ATTN_SRC/scripts/hpc/jobs/common.sh"
+
+detect_launcher
+build gcc-native
+BENCH="$BUILD/attn_bench"
+echo "== ctest ==" ; ctest --test-dir "$BUILD" --output-on-failure > ctest.log 2>&1 || { tail -30 ctest.log; exit 3; }
+tail -3 ctest.log
+
+echo "== MPI correctness, P=1..8, two OpenMP threads per rank =="
+for P in 1 2 3 4 5 7 8; do
+    rc=0; run "$P" 2 -- "$BUILD/attn_mpi_tests" > "mpi-tests-P$P.log" 2>&1 || rc=$?
+    [[ "$rc" == 0 ]] || { echo "MPI correctness failed at P=$P"; tail -5 "mpi-tests-P$P.log"; exit 3; }
+    echo "P=$P exit=$rc groups=$(grep -c repetitions=3 mpi-tests-P$P.log) worst=$(sed -n 's/.*max_abs=\([^,]*\),.*/\1/p' mpi-tests-P$P.log | sort -g | tail -1)"
+done
+
+echo "== vectorisation report (GCC) =="
+flags=$(sed -n 's/^CXX_FLAGS = //p' "$BUILD/CMakeFiles/attn_core.dir/flags.make")
+g++ $flags -I"$ATTN_SRC/include" -fopt-info-vec-optimized -c "$ATTN_SRC/src/core.cpp" -o /dev/null 2> vectorised.txt || true
+g++ $flags -I"$ATTN_SRC/include" -fopt-info-vec-missed -c "$ATTN_SRC/src/core.cpp" -o /dev/null 2> not-vectorised.txt || true
+grep -cE "core.cpp:(7[3-5]|8[0-2]|1[0-9][0-9]):" vectorised.txt || true
+g++ $flags -I"$ATTN_SRC/include" -Q --help=target 2>/dev/null | grep -E "march=|mtune=|prefer-vector-width" > target-flags.txt || true
+
+echo "== serial pilot: reference, basic, tuned and tile sizes (N=16384, d=dv=64) =="
+N=16384
+serial() { run 1 1 -- "$BENCH" --N "$N" --validate 64 --warmup 1 --reps 3 --cluster "$ATTN_CLUSTER" --purpose pilot --csv "$ATTN_RUN/serial-pilot.csv" "$@"; }
+serial --impl S0-fp32
+serial --impl S1 --kernel basic
+for bq in 8 16 32 64; do for bk in 32 64 128 256 512 1024; do
+    serial --impl S1 --kernel tuned --block-q "$bq" --block-k "$bk"
+done; done
+
+echo "== same pilot with 512-bit vectors preferred =="
+build gcc-native-w512 "-DATTN_EXTRA_FLAGS=-mprefer-vector-width=512"
+for bq in 16 32; do for bk in 64 128 256 512 1024; do
+    run 1 1 -- "$BUILD/attn_bench" --N "$N" --validate 64 --warmup 1 --reps 3 --cluster "$ATTN_CLUSTER" --purpose pilot-w512 \
+        --csv "$ATTN_RUN/serial-pilot-w512.csv" --impl S1 --kernel tuned --block-q "$bq" --block-k "$bk"
+done; done
+build gcc-native
+
+echo "== MPI microbenchmark inside one node =="
+run 2 1 -- "$BUILD/attn_netbench" --cluster "$ATTN_CLUSTER" --csv "$ATTN_RUN/netbench-1node.csv"
+
+echo "== single-node pilot: every variant, P = 1..72, N=32768 =="
+for P in 1 2 4 8 18 36 72; do
+    (( P <= SLOTS )) || continue
+    for impl in ring overlap rma_get allgather; do
+        [[ "$P" == 1 && "$impl" != ring ]] && continue
+        run "$P" 1 --report-bindings -- "$BENCH" --impl "$impl" --N 32768 --validate 32 --warmup 1 --reps 3 \
+            --cluster "$ATTN_CLUSTER" --purpose pilot --csv "$ATTN_RUN/mpi-pilot.csv" 2>> bindings.txt
+    done
+done
+echo "== hybrid pilot: 72 cores as ranks x threads =="
+for cfg in "1 72" "2 36" "4 18" "8 9" "18 4" "36 2"; do
+    set -- $cfg
+    (( $1 * $2 <= SLOTS )) || continue
+    run "$1" "$2" -- "$BENCH" --impl overlap --threads "$2" --N 32768 --validate 32 --warmup 1 --reps 3 \
+        --cluster "$ATTN_CLUSTER" --purpose pilot --csv "$ATTN_RUN/hybrid-pilot.csv"
+done
+echo "done"

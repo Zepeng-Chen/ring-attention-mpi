@@ -1,0 +1,22 @@
+#!/bin/bash
+# GPU job: record the GPU environment, then dump real Q/K/V and the reference
+# attention output of Qwen2.5-0.5B on a long Project Gutenberg text.
+source "$ATTN_SRC/scripts/hpc/jobs/common.sh"
+DATA=/scratch/$USER/ring-attention/data
+SIF=/app1/common/singularity-img/vanda/pytorch_2.5_cuda_12.4_unsloth.sif
+{
+    echo "--- gpu"; nvidia-smi
+    nvidia-smi --query-gpu=name,memory.total,driver_version,compute_cap --format=csv
+    echo "--- cuda toolchains visible"
+    module avail 2>&1 | tr ' ' '\n' | grep -E "^(nvhpc|CUDA/12)" | sort -u | tr '\n' ' '
+    echo
+    ( module load nvhpc-hpcx-cuda12/26.1 2>&1; module list 2>&1; which nvcc nvc++ mpicxx mpirun ncu nsys 2>&1; nvcc --version 2>&1 | tail -2; mpirun --version 2>&1 | head -2;
+      ompi_info 2>/dev/null | grep -iE "cuda|ucx" | head -12 ) 
+} > gpu-environment.txt 2>&1
+singularity exec --nv -e -B /scratch/$USER -B "$ATTN_SRC" "$SIF" python3 "$ATTN_SRC/scripts/extract_qkv.py" \
+    --model "$DATA/Qwen2.5-0.5B" --text "$DATA/text/pg2600.txt" \
+    --tokens "$(echo "${ATTN_TOKENS:-8192:16384:32768}" | tr ':' ',')" --layers "$(echo "${ATTN_LAYERS:-0:11:23}" | tr ':' ',')" \
+    --out "${ATTN_QKV_OUT:-$DATA/qkv}" ${ATTN_EXTRACT_FLAGS:-} > extract.log 2>&1 || { tail -40 extract.log; exit 3; }
+tail -20 extract.log
+find "$DATA/qkv" -name meta.json | sort | while read -r f; do cp "$f" "$(echo "$f" | sed "s|$DATA/qkv/||; s|/|-|g")"; done
+du -sh "$DATA/qkv"

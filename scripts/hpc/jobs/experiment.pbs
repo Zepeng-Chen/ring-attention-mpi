@@ -1,0 +1,391 @@
+#!/bin/bash
+# Formal CPU experiments. One suite per job, chosen with ATTN_SUITE:
+#   serial   E1  serial scaling in N and d, kernel ladder, tile sizes        (1 node)
+#   strong   E2  strong scaling, several N, all main variants + control      (1-4 nodes)
+#   weak     E3  weak scaling, two definitions                                (4 nodes)
+#   hybrid   E4  ranks x threads at fixed core counts                         (4 nodes)
+#   comm     E5/E13/E14  microbenchmarks, small rows-per-rank regime, traces  (4 nodes)
+#   causal   E6  causal mask: contiguous vs zigzag, ring vs one-sided         (4 nodes)
+#   memory   E7  peak memory: all-gather vs ring                              (1 node)
+#   gqa      E10 grouped-query attention vs matched multi-head control        (4 nodes)
+#   hardware     the no-communication control as a node fills up, with the clock  (1 node)
+#   model        few rows per rank inside one node, thin and fat ranks            (1 node)
+#   align        buffer alignment 16 / 64 / 4096 bytes, with hardware counters    (1 node)
+#   extras       clock ramp of a short run; S1 against one rank of M0 and M2      (1 node)
+#   tune         short tile sweep used to choose ATTN_BQ and ATTN_BK              (1 node)
+#   memprobe     what the kernel reports for one rank's memory                    (1 node)
+#   realdata     real_data.pbs (parts ATTN_REAL_PARTS) run inside this job        (1 node)
+#   fatcheck     repeat of the wide-rank point that was out of line, in two rounds (4 nodes)
+# Cost: credits are debited for requested walltime x cores when a job starts. Request
+# 1.3 x the measured duration, keep one-node work in one-node jobs, and let a
+# four-node job run only what needs it (ATTN_MIN_CORES=73, ATTN_RANKS=72:144:288,
+# ATTN_SERIAL_BASELINE=1 for its own serial reference).
+# Several suites can share one job: ATTN_SUITE=weak:hybrid:comm.
+# Every configuration: an untimed warm-up of at least one repetition and at
+# least WARM seconds (the processor stays at its base clock for the first seconds
+# of load), then three measured repetitions, each validated on sampled rows
+# against the fp64 reference.
+source "$ATTN_SRC/scripts/hpc/jobs/common.sh"
+detect_launcher
+# Main build: AVX-512 with 512-bit vectors preferred (the faster of the two
+# vector widths tested). The 256-bit build is kept for the comparison runs.
+build_main() { build gcc-native-w512 "-DATTN_EXTRA_FLAGS=-mprefer-vector-width=512"; }
+build_alt() { build gcc-native; }
+build_main
+BENCH="$BUILD/attn_bench"
+WARM="${ATTN_WARM:-5}"
+BQ="${ATTN_BQ:-128}"; BK="${ATTN_BK:-96}"
+SUITE="${ATTN_SUITE:?}"
+# Credits are charged per allocated core: configurations that fit on one node are
+# measured in a one-node job, and a multi-node job sets ATTN_MIN_CORES to skip them.
+MINC="${ATTN_MIN_CORES:-1}"
+CORES_PER_NODE=$(( SLOTS / NODES ))
+models=$(mpirun "${MPI_LAUNCH[@]}" -np "$NODES" --map-by ppr:1:node "${MPI_ENV[@]}" sh -c 'grep -m1 "model name" /proc/cpuinfo' < /dev/null | sort -u | wc -l)
+[[ "$models" == 1 ]] || { echo "allocation mixes CPU models; refusing to measure"; exit 4; }
+echo "suite=$SUITE nodes=$NODES slots=$SLOTS tiles=${BQ}x${BK}" | tee -a environment.txt
+
+# bench CSVNAME RANKS THREADS [driver args...]   (never aborts the suite)
+bench() {
+    local csv="$1" ranks="$2" threads="$3"; shift 3
+    (( ranks * threads <= SLOTS )) || return 0
+    run "$ranks" "$threads" -- "$BENCH" --cluster "$ATTN_CLUSTER" --purpose "final-$SUITE" --warmup 1 --warmup-seconds "$WARM" --reps 3 \
+        --block-q "$BQ" --block-k "$BK" --threads "$threads" --csv "$ATTN_RUN/$csv.csv" "$@" \
+        || echo "FAILED: $csv P=$ranks T=$threads $*" | tee -a failures.txt
+}
+# Serial baselines do not take --threads/--block arguments from bench().
+serial() {
+    local csv="$1"; shift
+    run 1 1 -- "$BENCH" --cluster "$ATTN_CLUSTER" --purpose "final-$SUITE" --warmup 1 --warmup-seconds "$WARM" --reps 3 --csv "$ATTN_RUN/$csv.csv" "$@" \
+        || echo "FAILED: $csv $*" | tee -a failures.txt
+}
+
+suite() {
+case "$SUITE" in
+serial)
+    for e in 10 11 12 13 14 15 16 17; do
+        n=$((1 << e))
+        serial serial-n --impl S1 --kernel tuned --block-q "$BQ" --block-k "$BK" --N "$n" --validate 64
+        if (( e <= 15 )); then
+            serial serial-n --impl S1 --kernel basic --block-q "$BQ" --block-k "$BK" --N "$n" --validate 64
+            serial serial-n --impl S0-fp32 --N "$n" --validate 64
+        fi
+        if (( e <= 14 )); then serial serial-n --impl S0 --N "$n" --validate 64; fi
+    done
+    for d in 16 32 64 128 256; do
+        serial serial-d --impl S1 --kernel tuned --block-q "$BQ" --block-k "$BK" --N 16384 --d "$d" --dv "$d" --validate 64
+        serial serial-d --impl S1 --kernel basic --block-q "$BQ" --block-k "$BK" --N 8192 --d "$d" --dv "$d" --validate 64
+        serial serial-d --impl S0-fp32 --N 8192 --d "$d" --dv "$d" --validate 64
+    done
+    for bq in 8 16 32 64 128 256; do for bk in 32 48 64 96 128 192 256 512; do
+        serial serial-tiles --impl S1 --kernel tuned --block-q "$bq" --block-k "$bk" --N 16384 --validate 64
+    done; done
+    build_alt
+    for bk in 64 96 128 192 256; do
+        run 1 1 -- "$BUILD/attn_bench" --cluster "$ATTN_CLUSTER" --purpose final-serial-w256 --warmup 1 --warmup-seconds "$WARM" --reps 3 \
+            --csv "$ATTN_RUN/serial-w256.csv" --impl S1 --kernel tuned --block-q "$BQ" --block-k "$bk" --N 16384 --validate 64 \
+            || echo "FAILED w256 bk=$bk" | tee -a failures.txt
+    done
+    # The scalar kernels with the compiler's default vector width, so that the
+    # optimisation ladder does not depend on a flag chosen for the tuned kernel.
+    for args in "--impl S1 --kernel tuned --block-q $BQ --block-k $BK" "--impl S1 --kernel basic --block-q $BQ --block-k $BK" "--impl S0-fp32"; do
+        run 1 1 -- "$BUILD/attn_bench" --cluster "$ATTN_CLUSTER" --purpose final-serial-w256 --warmup 1 --warmup-seconds "$WARM" --reps 3 \
+            --csv "$ATTN_RUN/serial-ladder-w256.csv" $args --N 16384 --validate 64 \
+            || echo "FAILED ladder w256 $args" | tee -a failures.txt
+    done
+    build_main
+    # Numerical error of the blocked fp32 kernels against fp64 on every row.
+    for n in 1024 4096 16384; do for bk in 16 256 4096; do
+        serial serial-error --impl S1 --kernel tuned --block-q "$BQ" --block-k "$bk" --N "$n" --validate "$n" --alpha 1
+        serial serial-error --impl S1 --kernel tuned --block-q "$BQ" --block-k "$bk" --N "$n" --validate "$n" --alpha 50
+    done; done
+    ;;
+strong)
+    # Lists may be given with ':' as separator (a job variable cannot contain ',').
+    sizes="${ATTN_SIZES:-32768 65536 131072}"; sizes="${sizes//:/ }"
+    ranks_list="${ATTN_RANKS:-1 2 4 8 18 36 72 144 288}"; ranks_list="${ranks_list//:/ }"
+    for n in $sizes; do
+        if [[ " $ranks_list " == *" 1 "* || "${ATTN_SERIAL_BASELINE:-0}" == 1 ]]; then
+            serial strong --impl S1 --kernel tuned --block-q "$BQ" --block-k "$BK" --N "$n" --validate 64
+        fi
+        for P in $ranks_list; do
+            (( P <= SLOTS )) || continue
+            # Fewer variants at very small P, where each run is long and all agree.
+            if (( P == 1 )); then impls="local"; elif (( P <= 4 )); then impls="local ring overlap"; else impls="local ring overlap rma_get allgather"; fi
+            for impl in $impls; do
+                bench strong "$P" 1 --impl "$impl" --N "$n" --validate 64 --rank-csv "$ATTN_RUN/ranks/strong-$impl-N$n-P$P"
+            done
+        done
+    done
+    ;;
+weak)
+    # (a) constant rows per rank: N = c0 * P. Per-rank work grows like P.
+    for c0 in 256 1024; do
+        for P in 1 2 4 8 18 36 72 144 288; do
+            (( P <= SLOTS && P >= MINC )) || continue
+            for impl in local ring overlap rma_get; do
+                bench weak-rows "$P" 1 --impl "$impl" --N $((c0 * P)) --validate 64
+            done
+        done
+    done
+    # (b) constant work per rank: N = N0 * sqrt(P), rows per rank shrink like 1/sqrt(P).
+    for N0 in 8192 16384; do
+        for pair in "1 1" "4 2" "16 4" "64 8" "256 16"; do
+            set -- $pair
+            (( $1 <= SLOTS && $1 >= MINC )) || continue
+            for impl in local ring overlap rma_get; do
+                bench weak-work "$1" 1 --impl "$impl" --N $((N0 * $2)) --validate 64
+            done
+        done
+    done
+    ;;
+hybrid)
+    n="${ATTN_N:-131072}"
+    for cores in "$CORES_PER_NODE" "$SLOTS"; do
+        (( cores >= MINC )) || continue
+        for threads in 1 2 4 9 18 36 72; do
+            ranks=$(( cores / threads ))
+            (( ranks >= 1 && ranks * threads == cores )) || continue
+            for impl in overlap local; do
+                bench hybrid "$ranks" "$threads" --impl "$impl" --N "$n" --validate 64 --rank-csv "$ATTN_RUN/ranks/hybrid-$impl-R$ranks-T$threads"
+            done
+        done
+        (( SLOTS > CORES_PER_NODE )) || break
+    done
+    ;;
+comm)
+    # Latency, bandwidth and progress, inside a node and across nodes.
+    mpirun "${MPI_LAUNCH[@]}" -np "$SLOTS" --map-by slot:PE=1 --bind-to core "${MPI_ENV[@]}" "$BUILD/attn_netbench" \
+        --cluster "$ATTN_CLUSTER" --csv "$ATTN_RUN/netbench.csv" < /dev/null || echo "FAILED netbench" | tee -a failures.txt
+    # Small rows-per-rank regime: where does communication become visible?
+    for n in 2304 4608 9216 18432 36864; do
+        for impl in local ring overlap rma_get rma_put allgather iallgather; do
+            bench comm-small-c "$SLOTS" 1 --impl "$impl" --N "$n" --validate 64
+        done
+        for poll in 1 4; do for impl in overlap rma_get; do
+            bench comm-poll "$SLOTS" 1 --impl "$impl" --poll-tiles "$poll" --N "$n" --validate 64
+        done; done
+    done
+    # Fat ranks make the local kernel faster relative to the network.
+    for n in 4608 9216 18432 36864 73728; do
+        ranks=$(( SLOTS / 18 ))
+        for impl in local ring overlap rma_get; do
+            bench comm-fat "$ranks" 18 --impl "$impl" --N "$n" --validate 64
+        done
+        for impl in overlap rma_get; do
+            bench comm-fat-poll "$ranks" 18 --impl "$impl" --poll-tiles 18 --N "$n" --validate 64
+        done
+    done
+    # Fetch order of the one-sided pull: staggered vs every rank pulling the same owner.
+    for order in staggered ascending; do
+        bench comm-order "$SLOTS" 1 --impl rma_get --fetch-order "$order" --N 18432 --validate 64
+    done
+    # Per-step traces, eight ranks spread over the allocated nodes.
+    per_node=$(( 8 / NODES ))
+    for impl in ring overlap rma_get; do
+        export OMP_NUM_THREADS=9
+        mpirun "${MPI_LAUNCH[@]}" -np 8 --map-by "ppr:$per_node:node:PE=9" --bind-to core "${MPI_ENV[@]}" "$BENCH" \
+            --cluster "$ATTN_CLUSTER" --purpose final-comm-trace --warmup 1 --warmup-seconds "$WARM" --reps 3 --block-q "$BQ" --block-k "$BK" --threads 9 \
+            --impl "$impl" --N 32768 --validate 64 --csv "$ATTN_RUN/comm-trace.csv" \
+            --trace-csv "$ATTN_RUN/traces/trace-$impl" --rank-csv "$ATTN_RUN/traces/ranks-$impl" < /dev/null \
+            || echo "FAILED trace $impl" | tee -a failures.txt
+    done
+    # Placement: the same 72 ranks packed on one node or spread over all nodes.
+    for impl in local overlap; do
+        bench comm-packed "$CORES_PER_NODE" 1 --impl "$impl" --N 65536 --validate 64
+        export OMP_NUM_THREADS=1
+        mpirun "${MPI_LAUNCH[@]}" -np "$CORES_PER_NODE" --map-by "ppr:$(( CORES_PER_NODE / NODES )):node:PE=1" --bind-to core "${MPI_ENV[@]}" "$BENCH" \
+            --cluster "$ATTN_CLUSTER" --purpose final-comm-spread --warmup 1 --warmup-seconds "$WARM" --reps 3 --block-q "$BQ" --block-k "$BK" --threads 1 \
+            --impl "$impl" --N 65536 --validate 64 --csv "$ATTN_RUN/comm-spread.csv" < /dev/null \
+            || echo "FAILED spread $impl" | tee -a failures.txt
+    done
+    ;;
+causal)
+    n="${ATTN_N:-131072}"
+    causal_ranks="8 $CORES_PER_NODE"
+    if (( SLOTS > CORES_PER_NODE )); then causal_ranks="$causal_ranks $SLOTS"; fi
+    for P in $causal_ranks; do
+        (( P <= SLOTS && P >= MINC )) || continue
+        for part in contiguous zigzag; do
+            for impl in local overlap rma_get; do
+                bench causal "$P" 1 --impl "$impl" --mask causal --partition "$part" --N "$n" --validate 64 \
+                    --rank-csv "$ATTN_RUN/ranks/causal-$impl-$part-P$P"
+            done
+        done
+        bench causal "$P" 1 --impl overlap --mask none --partition contiguous --N "$n" --validate 64
+    done
+    ;;
+memory)
+    for n in 65536 131072 262144 524288; do
+        for impl in allgather ring overlap rma_get; do
+            # Peak RSS must not include the validator's full K/V copy: measure with --validate 0
+            # (the same binary and configuration is validated in the other suites).
+            run "$SLOTS" 1 -- "$BENCH" --cluster "$ATTN_CLUSTER" --purpose final-memory --warmup 0 --reps 1 \
+                --block-q "$BQ" --block-k "$BK" --threads 1 --csv "$ATTN_RUN/memory.csv" --impl "$impl" --N "$n" --validate 0 \
+                || echo "FAILED memory $impl N=$n" | tee -a failures.txt
+        done
+    done
+    ;;
+gqa)
+    for P in "$CORES_PER_NODE" "$SLOTS"; do
+        (( P <= SLOTS && P >= MINC )) || continue
+        for n in 8192 16384 32768; do
+            for control in 0 1; do for impl in local ring overlap; do
+                bench gqa "$P" 1 --impl "$impl" --H 14 --Hkv 2 --mha-control "$control" --N "$n" --validate 32
+            done; done
+        done
+        (( SLOTS > CORES_PER_NODE )) || break
+    done
+    ;;
+hardware)
+    # Why does a full node compute slower per core? The no-communication control with
+    # 1..72 ranks, while the clock frequency of the busiest cores is sampled.
+    sample() {   # sample LABEL COUNT : mean MHz of the COUNT fastest cores, every 0.25 s, after the warm-up
+        sleep "$WARM"
+        while true; do
+            awk -v k="$2" '/cpu MHz/ {v[n++]=$4} END {m=asort(v); s=0; for (i=m; i>m-k && i>0; --i) s+=v[i]; printf "%.0f\n", s/k}' /proc/cpuinfo >> "freq-$1.txt"
+            sleep 0.25
+        done
+    }
+    for P in 1 2 4 9 18 27 36 54 72; do
+        sample "packed-P$P" "$P" & sampler=$!
+        bench hardware "$P" 1 --impl local --N 65536 --validate 64 --rank-csv "$ATTN_RUN/ranks/hardware-packed-P$P"
+        kill "$sampler" 2>/dev/null || true; wait "$sampler" 2>/dev/null || true
+    done
+    # The same rank counts spread evenly over both sockets instead of filling one first.
+    for P in 2 4 18 36; do
+        sample "spread-P$P" "$P" & sampler=$!
+        export OMP_NUM_THREADS=1
+        mpirun "${MPI_LAUNCH[@]}" -np "$P" --map-by "ppr:$(( P / 2 )):package:PE=1" --bind-to core "${MPI_ENV[@]}" "$BENCH" \
+            --cluster "$ATTN_CLUSTER" --purpose final-hardware-spread --warmup 1 --warmup-seconds "$WARM" --reps 3 --block-q "$BQ" --block-k "$BK" --threads 1 \
+            --impl local --N 65536 --validate 64 --csv "$ATTN_RUN/hardware-spread.csv" < /dev/null \
+            || echo "FAILED hardware spread P=$P" | tee -a failures.txt
+        kill "$sampler" 2>/dev/null || true; wait "$sampler" 2>/dev/null || true
+    done
+    # Does the vector width matter under full load? (256-bit build, same runs)
+    build_alt
+    for P in 1 36 72; do
+        run "$P" 1 -- "$BUILD/attn_bench" --cluster "$ATTN_CLUSTER" --purpose final-hardware-w256 --warmup 1 --warmup-seconds "$WARM" --reps 3 \
+            --block-q "$BQ" --block-k "$BK" --threads 1 --impl local --N 65536 --validate 64 --csv "$ATTN_RUN/hardware-w256.csv" \
+            || echo "FAILED hardware w256 P=$P" | tee -a failures.txt
+    done
+    build_main
+    ;;
+model)
+    # A clean test of the efficiency model inside one node (shared memory only):
+    # few rows per rank with thin ranks, and with fat OpenMP ranks whose compute
+    # rate is many times higher.
+    P="$CORES_PER_NODE"
+    for n in 576 1152 2304 4608 9216 18432 36864; do
+        for impl in local allgather ring overlap rma_get; do
+            run "$P" 1 -- "$BENCH" --cluster "$ATTN_CLUSTER" --purpose final-model --warmup 1 --warmup-seconds "$WARM" --reps 3 --block-q "$BQ" --block-k "$BK" \
+                --threads 1 --csv "$ATTN_RUN/model-thin.csv" --impl "$impl" --N "$n" --validate 64 \
+                || echo "FAILED model thin $impl N=$n" | tee -a failures.txt
+        done
+    done
+    fat_threads="${ATTN_FAT_THREADS:-9 18}"; fat_threads="${fat_threads//:/ }"
+    for threads in $fat_threads; do
+        ranks=$(( CORES_PER_NODE / threads ))
+        for n in 576 1152 2304 4608 9216 18432 36864 73728; do
+            for impl in local ring overlap rma_get; do
+                run "$ranks" "$threads" -- "$BENCH" --cluster "$ATTN_CLUSTER" --purpose final-model --warmup 1 --warmup-seconds "$WARM" --reps 3 --block-q "$BQ" --block-k "$BK" \
+                    --threads "$threads" --csv "$ATTN_RUN/model-fat.csv" --impl "$impl" --N "$n" --validate 64 \
+                    || echo "FAILED model fat $impl T=$threads N=$n" | tee -a failures.txt
+            done
+        done
+    done
+    # Shared-memory microbenchmark on this node (parameters of the model).
+    mpirun "${MPI_LAUNCH[@]}" -np 2 --map-by slot:PE=1 --bind-to core "${MPI_ENV[@]}" "$BUILD/attn_netbench" \
+        --cluster "$ATTN_CLUSTER" --csv "$ATTN_RUN/netbench-node.csv" < /dev/null || echo "FAILED netbench" | tee -a failures.txt
+    ;;
+memprobe)
+    # What does the kernel report for one rank while the all-gather / ring / one-sided
+    # variants hold their buffers? (resident, proportional, private and shared pages)
+    for impl in allgather ring rma_get; do
+        run "$SLOTS" 1 -- "$BENCH" --cluster "$ATTN_CLUSTER" --purpose memprobe --warmup 0 --reps 12 \
+            --block-q "$BQ" --block-k "$BK" --threads 1 --csv "$ATTN_RUN/memprobe.csv" --impl "$impl" --N 262144 --validate 0 &
+        launcher=$!
+        sleep 45
+        for pid in $(pgrep -u "$USER" -x attn_bench | head -3); do
+            echo "### $impl pid $pid"; grep -E "^(Rss|Pss|Pss_Anon|Pss_Shmem|Shared_Clean|Shared_Dirty|Private_Clean|Private_Dirty|AnonHugePages|ShmemPmdMapped):" "/proc/$pid/smaps_rollup"
+        done >> smaps.txt 2>&1
+        wait "$launcher" || echo "FAILED memprobe $impl" | tee -a failures.txt
+    done
+    ;;
+align)
+    # Controlled comparison of buffer alignment: the same source built with plain
+    # malloc (16 bytes), cache-line (64) and page (4096) alignment. Hardware counters
+    # for a fixed amount of work (one warm-up and three repetitions, no validation),
+    # then the timing protocol of every other suite for S1 and the variants at small P.
+    declare -A EXE
+    for a in 16 64; do
+        build "gcc-native-w512-a$a" "-DATTN_EXTRA_FLAGS=-mprefer-vector-width=512" "-DATTN_ALIGNMENT=$a"; EXE[$a]="$BUILD/attn_bench"
+    done
+    build_main; EXE[4096]="$BENCH"
+    EV=""
+    if command -v perf > /dev/null; then
+        for e in ld_blocks.no_sr ld_blocks.store_forward ld_blocks.address_alias; do
+            perf stat -e "$e" true > /dev/null 2>&1 && EV="$EV,$e"
+        done
+    fi
+    for a in 16 64 4096; do
+        if command -v perf > /dev/null; then
+            run 1 1 -- perf stat -o "$ATTN_RUN/perf-a$a.txt" -e "cycles,instructions$EV" "${EXE[$a]}" --cluster "$ATTN_CLUSTER" \
+                --purpose "align-perf-$a" --impl S1 --kernel tuned --block-q "$BQ" --block-k "$BK" --N 16384 --warmup 1 --reps 3 \
+                --validate 0 --csv "$ATTN_RUN/align-perf.csv" || echo "FAILED perf a=$a" | tee -a failures.txt
+        fi
+        common=(--cluster "$ATTN_CLUSTER" --purpose "align-$a" --warmup 1 --warmup-seconds "$WARM" --reps 3 --block-q "$BQ" --block-k "$BK" \
+                --N 32768 --validate 64 --csv "$ATTN_RUN/align.csv")
+        run 1 1 -- "${EXE[$a]}" "${common[@]}" --impl S1 --kernel tuned || echo "FAILED S1 a=$a" | tee -a failures.txt
+        for P in 1 2 4 8; do for impl in local ring overlap; do
+            run "$P" 1 -- "${EXE[$a]}" "${common[@]}" --threads 1 --impl "$impl" || echo "FAILED a=$a $impl P=$P" | tee -a failures.txt
+        done; done
+    done
+    ;;
+tune)
+    # Tile sweep to choose B_q and B_k for the other suites (the serial suite repeats
+    # a larger sweep for the figure).
+    for bq in 8 16 32 64 128; do for bk in 32 64 96 128 192 256 512; do
+        serial tune-tiles --impl S1 --kernel tuned --block-q "$bq" --block-k "$bk" --N 16384 --validate 64
+    done; done
+    ;;
+fatcheck)
+    # In suite comm the overlapped ring with 16 ranks of 18 threads at N=73728 took
+    # more than twice as long as the control in all three repetitions. The same
+    # configurations are measured again together with the neighbouring sizes, in two
+    # rounds (separate files), to tell a disturbance from a reproducible effect.
+    ranks=$(( SLOTS / 18 ))
+    for round in 1 2; do
+        for n in 36864 73728 147456; do
+            for impl in local ring overlap; do
+                bench "fatcheck-r$round" "$ranks" 18 --impl "$impl" --N "$n" --validate 64
+            done
+            bench "fatcheck-poll-r$round" "$ranks" 18 --impl overlap --poll-tiles 18 --N "$n" --validate 64
+        done
+    done
+    ;;
+realdata)
+    # The real-tensor validation and GQA runs of real_data.pbs inside this job.
+    ATTN_REAL_PARTS="${ATTN_REAL_PARTS:-v7:e10}" ATTN_BQ="$BQ" ATTN_BK="$BK" bash "$ATTN_SRC/scripts/hpc/jobs/real_data.pbs" \
+        || echo "FAILED: real data" | tee -a failures.txt
+    cd "$ATTN_RUN"
+    ;;
+extras)
+    # (1) Does a short run reach the full clock? 400 consecutive repetitions of a 40 ms problem.
+    run 1 1 -- "$BENCH" --cluster "$ATTN_CLUSTER" --purpose final-ramp --warmup 0 --reps 400 --csv "$ATTN_RUN/ramp.csv" \
+        --impl S1 --kernel tuned --block-q "$BQ" --block-k "$BK" --N 2048 --validate 16 || echo "FAILED ramp" | tee -a failures.txt
+    # (2) The same single-core work through the serial driver path and through one MPI rank, alternating.
+    for round in 1 2 3; do
+        serial baseline --impl S1 --kernel tuned --block-q "$BQ" --block-k "$BK" --N 32768 --validate 64
+        bench baseline 1 1 --impl local --N 32768 --validate 64
+        bench baseline 1 1 --impl ring --N 32768 --validate 64
+    done
+    ;;
+*) echo "unknown suite $SUITE"; exit 2;;
+esac
+}
+ALL_SUITES="$SUITE"
+for SUITE in ${ALL_SUITES//:/ }; do
+    echo "=== suite $SUITE start $(date -u +%H:%M:%S)"
+    suite
+    echo "=== suite $SUITE end $(date -u +%H:%M:%S); failures so far: $(wc -l < failures.txt 2>/dev/null || echo 0)"
+done

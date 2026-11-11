@@ -1,0 +1,27 @@
+\begin{table}[!ht]\centering\footnotesize\setlength{\tabcolsep}{3.5pt}
+\begin{tabularx}{\textwidth}{@{}l l l r >{\hsize=1.5\hsize}Y >{\hsize=0.5\hsize}Y@{}}
+\toprule
+PBS job & allocated & source & validated & measures & used by\\
+\midrule
+1537814 & 1 $\times$ 72 cores & \code{6d5b40617f} & 117 & buffer alignment 16/64/4096 bytes: serial time, hardware counters, efficiency at P $\le$ 8 & \cref{tab:align}\\
+1537819 & 1 $\times$ 72 cores & \code{6d5b40617f} & 427 & clock ramp of a short run; S1 against one rank of M0 and M2 & text\\
+1537815 & 1 $\times$ 72 cores & \code{6d5b40617f} & 342 (18 failed) & serial scaling in N and d, kernel ladder, tile sizes, vector width, error study & \cref{fig:gpuladder,fig:serial,fig:tiles}\\
+1537812 & 1 $\times$ 72 cores & \code{6d5b40617f} & 252 & strong scaling, 1 to 72 cores (one node) & \cref{fig:collapse,fig:strong,tab:strong}\\
+1537813 & 1 $\times$ 72 cores & \code{6d5b40617f} & 402 & weak scaling, ranks $\times$ threads, causal mask, GQA: configurations up to 72 cores & \cref{fig:causal,fig:collapse,fig:hybrid,fig:weak}\\
+1538908 & 4 $\times$ 72 cores & \code{61f4285084} & 72 & repeat of three wide-rank configurations, two rounds & \cref{fig:smallc}\\
+1537816 & 1 $\times$ 72 cores & \code{6d5b40617f} & 48 & no-communication control from 1 to 72 ranks with sampled clock frequency & \cref{fig:collapse,fig:hardware}\\
+1537817 & 1 $\times$ 72 cores & \code{6d5b40617f} & 0 & peak memory of all-gather, ring and one-sided variants & \cref{fig:memory}\\
+1537448 & 1 $\times$ 36 cores, 1 GPU & \code{950c367da6} & 99 & one GPU: kernels K0, K1, K2, causal mask, real tensors & \cref{fig:gpuladder,tab:v7}\\
+1538062 & 1 $\times$ 72 cores, 2 GPU & \code{26bcb9e576} & 96 & MPI+CUDA ring, two GPUs in one node & \cref{fig:gpuring}\\
+1538896 & 2 $\times$ 36 cores, 2 GPU & \code{43075d2e97} & 96 & MPI+CUDA ring, one GPU in each of two nodes & \cref{fig:gpuring}\\
+1538061 & 1 $\times$ 36 cores, 1 GPU & \code{26bcb9e576} & 51 & MPI+CUDA ring, two ranks sharing one GPU: correctness only & text\\
+1537339 & 1 $\times$ 36 cores, 1 GPU & \code{0680e49ddb} & 87 & GPU unit tests: K0, K1, K2 on boundary, mask and grouped-head cases, every row against fp64 & text\\
+1537485 & 1 $\times$ 72 cores & \code{ab50eef687} & 0 & real tensors: attention statistics and window approximations (fp64 analysis) & \cref{fig:realheads,fig:realwindow}\\
+1539119 & 1 $\times$ 16 cores & \code{800756b9e0} & all passed & unit tests of the submitted code & text\\
+1538059 & 1 $\times$ 72 cores & \code{26bcb9e576} & 321 & few rows per rank inside one node: thin ranks, 18-thread ranks, two-rank microbenchmark; real tensors: validation against fp64 and PyTorch, all variants, GQA against control & \cref{fig:collapse,tab:v7}\\
+1538060 & 4 $\times$ 72 cores & \code{26bcb9e576} & 615 & strong scaling, 72 to 288 cores (four nodes), with its own serial baseline; the same at 288 cores; microbenchmark, few rows per rank, traces, placement & \cref{fig:causal,fig:collapse,fig:hybrid,fig:netbench,fig:smallc,fig:strong,fig:traces,fig:weak,tab:strong}\\
+\bottomrule
+\end{tabularx}
+\caption{Provenance of the results: one line per Vanda job. ``Allocated'': nodes $\times$ cores per node given to the job (a GPU job receives 36 cores per GPU); a job also measures configurations that use fewer cores than it was given. ``Source'': identifier of the source snapshot the job was built from; the compute and benchmark-driver sources of all CPU jobs are byte-identical, as are the kernel sources of all GPU jobs. The submitted compute and kernel sources are these files; the submitted driver differs from the measured one in two option checks (\cref{app:environment}). ``Validated'': repetitions compared with the double-precision reference on sampled rows; the failures are those of the stress study of \cref{sec:validation}. ``Used by'': figures and tables computed from the job's files (``text'': quoted numbers only).}
+\label{tab:provenance}
+\end{table}

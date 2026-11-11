@@ -1,0 +1,114 @@
+#!/bin/bash
+# Formal GPU experiments (NVIDIA HPC SDK + HPC-X CUDA-aware Open MPI).
+#   ATTN_SUITE=ladder  E8  single-GPU kernel ladder K0/K1/K2 and real model tensors
+#   ATTN_SUITE=ring    E9  two GPUs: host-staged vs CUDA-aware, overlapped vs blocking
+#                          (both GPUs in one node, or one per node, as allocated)
+#   ATTN_SUITE=ringcheck   correctness of the MPI+CUDA ring with two ranks on one GPU
+export ATTN_ENV=vanda_gpu_env.sh
+source "$ATTN_SRC/scripts/hpc/jobs/common.sh"
+{
+    nvidia-smi --query-gpu=index,name,memory.total,driver_version --format=csv
+    nvcc --version | tail -2; mpirun --version | head -1; g++ --version | head -1
+    ompi_info 2>/dev/null | grep -iE "MPI extensions|MCA pml: ucx|MCA btl: smcuda" | cut -c1-110
+} > gpu-environment.txt 2>&1
+BUILD="$ATTN_BUILD_ROOT/$ATTN_TAG-gpu"
+# GPU jobs that start together share this directory: one builder at a time.
+lock="$BUILD.lock"
+acquire_build_lock "$lock" 600
+if [[ ! -f "$BUILD/.complete" ]]; then
+    cmake -S "$ATTN_SRC" -B "$BUILD" -DCMAKE_BUILD_TYPE=Release -DATTN_ENABLE_CUDA=ON -DATTN_ENABLE_OPENMP=OFF \
+        -DCMAKE_CXX_COMPILER=g++ -DCMAKE_CUDA_FLAGS="-O3" > build-gpu.log 2>&1 || { release_build_lock "$lock"; tail -40 build-gpu.log; exit 1; }
+    cmake --build "$BUILD" --parallel 8 >> build-gpu.log 2>&1 || { release_build_lock "$lock"; tail -60 build-gpu.log; exit 1; }
+    touch "$BUILD/.complete"
+fi
+release_build_lock "$lock"
+G="$BUILD/attn_gpu_bench"
+SUITE="${ATTN_SUITE:?}"
+GPUS_HERE=$(nvidia-smi -L | wc -l)
+detect_launcher
+# One rank per GPU. Across nodes: one rank per node; inside a node: both ranks here.
+RANK_ENV=()
+if (( NODES > 1 )); then
+    MAP=(--map-by ppr:1:node); TOPOLOGY=two-nodes
+    # The ranks on the other nodes are started over ssh, outside this job's control
+    # group, and would see every GPU of their node. gpu_rank.sh gives each rank the GPU
+    # of the vnode that PBS allocated on its node (see that script).
+    ATTN_GPU_VNODES="$(qstat -f "$PBS_JOBID" | bash "$ATTN_SRC/scripts/hpc/jobs/gpu_rank.sh" --vnodes)"
+    export ATTN_GPU_VNODES ATTN_RUN
+    RANK_ENV=(-x ATTN_GPU_VNODES -x ATTN_RUN bash "$ATTN_SRC/scripts/hpc/jobs/gpu_rank.sh")
+    echo "vnodes: $ATTN_GPU_VNODES" | tee -a gpu-environment.txt
+    # What each node shows before the measurements (devices and the processes on them).
+    mpirun "${MPI_LAUNCH[@]}" -np "$NODES" "${MAP[@]}" --bind-to none -x LD_LIBRARY_PATH -x PATH "${RANK_ENV[@]}" --census \
+        >> gpu-environment.txt 2>&1 < /dev/null || { echo "GPU census failed"; exit 1; }
+else
+    MAP=(); TOPOLOGY=one-node
+    nvidia-smi --query-gpu=index,uuid,pci.bus_id,memory.used,utilization.gpu --format=csv,noheader >> gpu-environment.txt 2>&1 || true
+fi
+gpu() {
+    local csv="$1" ranks="$2"; shift 2
+    mpirun "${MPI_LAUNCH[@]}" -np "$ranks" "${MAP[@]}" --bind-to none -x LD_LIBRARY_PATH -x PATH "${RANK_ENV[@]}" "$G" \
+        --cluster "$ATTN_CLUSTER" --warmup 1 --reps 3 --csv "$ATTN_RUN/$csv.csv" "$@" < /dev/null \
+        || echo "FAILED: $csv P=$ranks $*" | tee -a failures.txt
+}
+echo "suite=$SUITE nodes=$NODES gpus_on_this_node=$GPUS_HERE topology=$TOPOLOGY" | tee -a gpu-environment.txt
+
+case "$SUITE" in
+ladder)
+    for e in 11 12 13 14 15 16 17 18; do
+        n=$((1 << e))
+        (( e <= 15 )) && gpu ladder 1 --kernel k0 --N "$n" --validate 32 --purpose final-ladder
+        (( e <= 17 )) && gpu ladder 1 --kernel k1 --N "$n" --validate 32 --purpose final-ladder
+        gpu ladder 1 --kernel k2 --N "$n" --validate 32 --purpose final-ladder
+    done
+    # Causal mask: half the pairs, and whole key tiles skipped by the fused kernel.
+    for n in 16384 65536; do
+        for kernel in k1 k2; do gpu ladder-causal 1 --kernel "$kernel" --mask causal --N "$n" --validate 32 --purpose final-ladder; done
+    done
+    # Real model tensors: 14 query heads, 2 K/V heads, causal.
+    DATA=/scratch/$USER/ring-attention/data/qkv
+    for n in 8192 16384 32768; do for layer in 00 11 23; do
+        gpu real 1 --kernel k2 --data "file:$DATA/N$n/layer$layer" --N "$n" --H 14 --Hkv 2 --d 64 --dv 64 --mask causal \
+            --validate 64 --tolerance-scale 1e-3 --purpose "final-real-layer$layer"
+    done; done
+    ;;
+ring)
+    for n in 4096 8192 16384 32768 65536 131072; do
+        gpu ring-$TOPOLOGY 1 --kernel k2 --N "$n" --validate 32 --purpose "final-ring-$TOPOLOGY"
+        for comm in host aware; do for schedule in overlap blocking; do
+            gpu ring-$TOPOLOGY 2 --kernel k2 --comm "$comm" --schedule "$schedule" --N "$n" --validate 32 \
+                --purpose "final-ring-$TOPOLOGY" --rank-csv "$ATTN_RUN/ranks/ring-$comm-$schedule-N$n"
+        done; done
+    done
+    # Causal mask on two GPUs: contiguous leaves the second GPU with three times the work.
+    for part in contiguous zigzag; do
+        gpu ring-causal-$TOPOLOGY 2 --kernel k2 --comm aware --schedule overlap --mask causal --partition "$part" --N 65536 \
+            --validate 32 --purpose "final-ring-$TOPOLOGY" --rank-csv "$ATTN_RUN/ranks/causal-$part"
+    done
+    ;;
+ringcheck)
+    # Functional check of the MPI+CUDA ring when only one GPU can be obtained: two
+    # ranks share the device (--share-gpu 1). Every exchange mode, schedule, mask and
+    # partition is validated against the fp64 reference; the timings are not scaling data.
+    for n in 4096 32768; do
+        for comm in host aware; do for schedule in overlap blocking; do
+            gpu ringcheck 2 --share-gpu 1 --kernel k2 --comm "$comm" --schedule "$schedule" --N "$n" --validate 64 --purpose shared-gpu-check
+        done; done
+    done
+    for mask in causal window sink-window; do for part in contiguous zigzag; do
+        gpu ringcheck 2 --share-gpu 1 --kernel k2 --comm aware --schedule overlap --mask "$mask" --window 512 --sink 4 --partition "$part" \
+            --N 16384 --validate 64 --purpose shared-gpu-check
+    done; done
+    for kernel in k0 k1; do
+        gpu ringcheck 2 --share-gpu 1 --kernel "$kernel" --comm host --schedule overlap --N 4096 --validate 64 --purpose shared-gpu-check
+    done
+    gpu ringcheck 2 --share-gpu 1 --kernel k2 --comm aware --schedule overlap --H 14 --Hkv 2 --mask causal --partition zigzag \
+        --N 8192 --validate 64 --purpose shared-gpu-check
+    ;;
+*) echo "unknown suite $SUITE"; exit 2;;
+esac
+if (( NODES > 1 )); then
+    mpirun "${MPI_LAUNCH[@]}" -np "$NODES" "${MAP[@]}" --bind-to none -x LD_LIBRARY_PATH -x PATH "${RANK_ENV[@]}" --census \
+        >> gpu-environment.txt 2>&1 < /dev/null || true
+fi
+failures=0; [[ -f failures.txt ]] && failures=$(wc -l < failures.txt)
+echo "suite $SUITE finished; failures: $failures"

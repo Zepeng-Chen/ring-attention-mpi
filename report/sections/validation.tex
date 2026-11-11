@@ -1,0 +1,107 @@
+\section{Validation}\label{sec:validation}
+
+\paragraph{Principle.} Every implementation is compared with one reference: a
+row-at-a-time, two-pass evaluation of \cref{eq:attention} in double precision (S0).
+It computes all scores of a query, their maximum, and then the normalised sum; it
+uses neither the online update nor the tuned kernel. It does share the tensor
+layout, the head mapping and the mask predicate with the code under test, so a
+mistake in those would be common to both; the real-data runs add a check from
+outside, PyTorch's own output (\cref{sec:real}). Tolerances were fixed before
+running: an absolute difference of at most $10^{-5}$ for the synthetic outputs,
+whose components are at most one in magnitude (they are weighted averages of values
+in $[-1,1)$), and any NaN or infinity is a failure. Every timed scaling run of this
+report repeats the comparison on evenly spaced sample rows, each against all $N$
+keys (64 rows in the CPU runs and 32 in the GPU runs unless stated), and checks all
+outputs for non-finite values; a failed check makes the program exit with an error
+and marks the result line. The runs that measure something other than the attention
+time carry no comparison: peak memory, the hardware-counter runs of
+\cref{tab:align}, and the network microbenchmark.
+
+\paragraph{What the tests cover, and why.} The unit tests are few, eight kinds, and
+each targets one way the algorithm can fail (\cref{tab:tests}). A test is repeated
+for the parameter values on which that failure depends (both kernels, several tile
+sizes, rank counts), because an error at a tile or shard boundary shows only when
+the boundary falls in the right place; that is the only reason the number of
+individual comparisons is larger than the number of tests.
+
+\begin{table}[t]
+\centering\small
+\begin{tabularx}{\textwidth}{@{}l Y Y@{}}
+\toprule
+Test & Cases & Failure it would expose\\
+\midrule
+Block algebra & key-tile sizes 1, 8, 37, 64 with 37 keys, both kernels & wrong rescaling when the running maximum changes between blocks\\
+Uneven sizes & $N=1000$ with tiles of 64; $P=3,5,7$; more ranks than rows & remainder handling, empty shards\\
+Masks & causal, window, sink+window; blocks that are entirely masked; reversed block order & NaN from $-\infty-(-\infty)$, off-by-one at the diagonal\\
+Stressed scores & queries multiplied by 50 (weights span 30 orders of magnitude) & overflow or loss of the normalisation\\
+Extreme tails & a value of $10^{38}$ behind a weight of $e^{-100}$ & a tiny weight treated as if it were larger\\
+Grouped heads & $H=14$, $H_{kv}=2$ against explicitly replicated key/value heads & wrong head mapping\\
+Every MPI variant & seven shapes $\times$ M0--M8 and three fetch orders, three consecutive runs on one object & wrong owner or offset, stale buffers, missing synchronisation\\
+Counters & useful pairs and received bytes against closed forms & skipped or double-counted work\\
+\bottomrule
+\end{tabularx}
+\caption{Unit tests of the CPU code (\code{tests/}). All are compared with the
+double-precision reference on every row. The analysis program of \cref{sec:real} has
+its own test against an independent recomputation and two constructed edge cases
+(\code{tests/analyze\_test.py}).}
+\label{tab:tests}
+\end{table}
+
+\paragraph{Results.} The unit tests were run on Vanda on exactly the submitted
+source (\cref{tab:provenance}). The core tests (\n{unit.core.cases} comparisons once
+the kernels and tile sizes are multiplied out) and the MPI tests for
+$P=1,\dots,\n{unit.mpi.pmax}$ with two threads per rank (\n{unit.mpi.groups}
+combinations of shape, variant and fetch order for each $P$) pass; the
+largest absolute error over all of them is $\n{unit.maxerr}$ (in the
+\n{unit.maxerr.case} case), below the tolerance by a factor of \n{unit.margin}. The
+three CUDA kernels pass \n{gpuunit.configs} boundary, mask and grouped-head cases on
+the A40 with every row compared (largest error $\n{gpuunit.maxerr}$). The MPI+CUDA
+ring was checked at three levels (\cref{sec:gpuring}): two ranks sharing one GPU,
+two GPUs in one node, and one GPU in each of two nodes; all repetitions pass. In the
+formal runs every timed repetition validates itself, since the time of a wrong
+result is worthless: \ValidatedReps{} repetitions carried a validation and
+\ValidatedFailed{} exceeded the tolerance. All of these belong to one deliberately
+hard study, described next; no repetition of a scaling experiment failed. Running
+the same problem with different rank counts and variants changes the result only in
+the last bits: in the strong-scaling runs the error of one problem against double
+precision differs by at most $\n{val.rankspread}$ between configurations.
+
+\paragraph{How large is the error, and where does it come from?} For $N$ up to
+\n{err.rows.max} the tuned kernel was compared with double precision on
+\emph{every} row, for key tiles of \n{err.bk.list} keys. With the ordinary synthetic
+data the largest difference is $\n{err.plain.max}$ for every size and tile. With
+the queries multiplied by \n{err.alpha}, so that the softmax puts nearly all weight
+on a few keys, it is $\n{err.stress.N1024}$ at $N=1{,}024$, $\n{err.stress.N4096}$ at
+$N=4{,}096$ and $\n{err.stress.N16384}$ at $N=16{,}384$. The last two exceed the
+tolerance fixed in advance. I report them as failures (\n{err.failed.configs}
+configurations, \n{err.failed.reps} repetitions) and did not widen the tolerance.
+
+The block-wise update does not explain these failures: the error differs by less
+than one per cent between tiles of 16 keys, where a query goes through hundreds of
+online updates, and tiles of 4{,}096 keys, where for $N=4{,}096$ all keys form a
+single block. (That single block still uses the same score loop and the same
+exponential, so the comparison isolates the update, not the whole kernel.) What
+the numbers are consistent with is the rounding of the single-precision scores. A
+score of magnitude $|s|$ carries a rounding error of order $10^{-7}|s|$, and the
+exponential turns it into a relative error of the weight of the same size. The
+scores of this test have a standard deviation of $50/3\approx17$ by construction,
+so the largest of them is near one hundred, which gives $10^{-5}$; the maximum over
+more rows then grows slowly with $N$. A check on a development machine points the
+same way: keeping the single-precision scores and evaluating everything after them
+in double precision left the error unchanged. I did not repeat that ablation on the
+cluster, so this is a supported explanation and not a proof that no
+single-precision algorithm could meet the tolerance. The conclusion for use is that
+the stated tolerance holds for well-scaled inputs and should be read relative to
+the score magnitude for sharply peaked ones, which is how the real tensors of
+\cref{sec:real} are checked.
+
+\paragraph{A bug that the tolerance alone did not catch.} The first version of the
+vectorised exponential (\cref{sec:serial}) clamped arguments below $-87$ to $-87$
+instead of letting the result underflow. With order-one values this is invisible,
+since a weight of $e^{-87}$ is negligible. A code review constructed finite inputs
+for which it is not: with $q=1$, keys $0$ and $-100$ and values $0$ and $10^{38}$,
+the correct output is $10^{38}e^{-100}=3.7\times10^{-6}$ and the clamped kernel returned
+$10^{38}e^{-87}=1.65$. The
+kernel now detects such ranges and evaluates them with the library exponential, and
+the case is part of the unit tests. The episode is the reason the test list
+contains ``extreme tails'': a test with well-scaled data would never have found it.

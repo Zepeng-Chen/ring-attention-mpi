@@ -1,0 +1,53 @@
+#!/bin/bash
+# Real model tensors (Qwen2.5-0.5B, 14 query heads sharing 2 K/V heads) on one node.
+#   V7  : distributed fp32 output vs the fp64 reference and vs PyTorch's own output
+#   E10 : grouped-query attention against the matched multi-head control
+#   E11 : attention statistics and the error of windowed approximations
+source "$ATTN_SRC/scripts/hpc/jobs/common.sh"
+detect_launcher
+build gcc-native-w512 "-DATTN_EXTRA_FLAGS=-mprefer-vector-width=512"
+BENCH="$BUILD/attn_bench"
+DATA=/scratch/$USER/ring-attention/data/qkv
+SHAPE=(--H 14 --Hkv 2 --d 64 --dv 64)
+common=(--cluster "$ATTN_CLUSTER" --warmup 1 --warmup-seconds "${ATTN_WARM:-5}" --reps 3 --mask causal --tolerance-scale 1e-3 \
+        --block-q "${ATTN_BQ:-128}" --block-k "${ATTN_BK:-96}")
+PARTS=":${ATTN_REAL_PARTS:-v7:e10:e11}:"
+
+if [[ "$PARTS" == *":v7:"* ]]; then
+echo "== V7: every length and layer, 8 ranks x 9 threads, zigzag =="
+for n in 8192 16384 32768; do for layer in 00 11 23; do
+    dir="$DATA/N$n/layer$layer"
+    run 8 9 -- "$BENCH" --impl overlap --threads 9 --partition zigzag --data "file:$dir" --N "$n" "${SHAPE[@]}" \
+        --validate 512 --oref "$dir/o_ref.bin" "${common[@]}" --purpose "v7-N$n-layer$layer" --csv "$ATTN_RUN/v7.csv" \
+        || echo "V7 run reported a validation failure: N=$n layer=$layer"
+done; done
+echo "== V7: every communication variant on one layer (N=8192, layer 11) =="
+dir="$DATA/N8192/layer11"
+for impl in allgather iallgather ring overlap rma_get rma_put local; do for part in contiguous zigzag; do
+    run 8 1 -- "$BENCH" --impl "$impl" --partition "$part" --data "file:$dir" --N 8192 "${SHAPE[@]}" \
+        --validate 8192 --oref "$dir/o_ref.bin" "${common[@]}" --purpose v7-variants --csv "$ATTN_RUN/v7-variants.csv" \
+        || echo "V7 variant failure: $impl $part"
+done; done
+run 1 1 -- "$BENCH" --impl S0-fp32 --data "file:$dir" --N 8192 "${SHAPE[@]}" --validate 8192 --oref "$dir/o_ref.bin" \
+    "${common[@]}" --purpose v7-variants --csv "$ATTN_RUN/v7-variants.csv" || echo "S0-fp32 failure"
+fi
+
+if [[ "$PARTS" == *":e10:"* ]]; then
+echo "== E10: GQA vs matched MHA control, real tensors N=32768 layer 11 =="
+dir="$DATA/N32768/layer11"
+for P in 8 18 36 72; do for control in 0 1; do for impl in overlap local; do
+    run "$P" 1 -- "$BENCH" --impl "$impl" --partition zigzag --data "file:$dir" --N 32768 "${SHAPE[@]}" --mha-control "$control" \
+        --validate 64 "${common[@]}" --purpose e10-real --csv "$ATTN_RUN/e10-real.csv" || echo "E10 failure P=$P control=$control"
+done; done; done
+fi
+
+if [[ "$PARTS" == *":e11:"* ]]; then
+echo "== E11: attention statistics =="
+for n in 8192 16384 32768; do for layer in 00 11 23; do
+    run 1 72 -- "$BUILD/attn_analyze" --data "$DATA/N$n/layer$layer" --N "$n" "${SHAPE[@]}" --rows 2048 \
+        --windows 16,64,256,1024,4096,16384 --sink 4 --label "layer$layer" --csv "$ATTN_RUN/e11-N$n-layer$layer.csv" \
+        || echo "FAILED analysis N=$n layer=$layer" | tee -a failures.txt
+done; done
+fi
+for f in "$DATA"/N*/layer*/meta.json; do cp "$f" "meta-$(echo "$f" | sed "s|$DATA/||; s|/meta.json||; s|/|-|g").json"; done
+echo done

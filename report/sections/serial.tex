@@ -1,0 +1,150 @@
+\subsection{Three kernels}
+The serial code exists in three forms, each a rung of an optimisation ladder.
+
+\begin{itemize}
+\item \textbf{S0, naive two-pass.} For each query: compute all $N$ scores, find the
+maximum, then accumulate. It needs only one row of scores at a time. In double
+precision it is the validation reference; in single precision (S0-fp32) it is the
+performance control with the same arithmetic as the other kernels.
+\item \textbf{S1 basic, blocked.} Queries are processed in tiles of $B_q$ rows and
+keys in tiles of $B_k$, with the online update of \cref{eq:online} between key
+tiles. The loops are the obvious scalar ones: the mask is tested for every pair
+and the library exponential is called for every pair.
+\item \textbf{S1 tuned.} The same blocking with five changes, none of which uses a
+library (\cref{tab:tuning}). This kernel is the serial baseline $T_S$ of every
+speedup in this report, and the kernel inside every parallel CPU run.
+\end{itemize}
+
+\begin{table}[t]
+\centering\small
+\begin{tabularx}{\textwidth}{@{}l Y Y@{}}
+\toprule
+Change & What is done & Why it helps\\
+\midrule
+Packing & Each key tile is copied once per shard into a layout with one contiguous row per dimension. & The score of one query against the whole tile becomes $d$ multiply-adds of long contiguous rows over keys; the compiler vectorises this for any vector width.\\
+Mask as ranges & Keys are sorted by position, so the allowed keys of a query within a tile form at most two index ranges, found by binary search. & No branch per pair; tiles that lie entirely in the future of a query tile end the loop.\\
+Eight streams per pass & Scores add eight query components per pass over the tile; the value sum adds eight keys per pass over the $d_v$ components. & The running array is loaded and stored once per eight multiply-adds, so the loop is limited by arithmetic and not by memory round trips. The partial sums are written out explicitly, so no \code{-ffast-math} is needed and results do not depend on the compiler's reassociation.\\
+Aligned storage & Every tensor and scratch array starts at a multiple of 4096 bytes instead of the 16 bytes that \code{malloc} guarantees. & A 512-bit load or store covers exactly one 64-byte cache line only if its address is a multiple of 64; otherwise every access straddles two lines (see below).\\
+Own exponential & Range reduction $x=k\ln2+r$, a degree-6 polynomial for $e^{r}$~\cite{cephes}, and $2^k$ built from exponent bits; arguments are $\le 0$ by construction. & The loop vectorises (the library call does not); relative error about $10^{-7}$. Ranges containing arguments below $-87$ fall back to the library function so that tiny weights underflow correctly (\cref{sec:validation}).\\
+\bottomrule
+\end{tabularx}
+\caption{What distinguishes the tuned kernel from the basic blocked one.}
+\label{tab:tuning}
+\end{table}
+
+\subsection{Run time against problem size}
+\begin{figure}[t]
+\centering
+\figureifexists{serial_scaling.pdf}
+\caption{One core of a Xeon Platinum 8452Y. (a) Run time against sequence length
+for the four serial codes ($d=d_v=64$, one head). (b) Time per query--key pair
+against the head dimension. (c) Useful throughput of the single-precision kernels.}
+\label{fig:serial}
+\end{figure}
+
+\Cref{fig:serial}a shows the expected quadratic growth. A least-squares fit of
+$\log T$ against $\log N$ for $N\ge8{,}192$ gives slopes of \n{serial.slope.tuned}
+for the tuned kernel, \n{serial.slope.basic} for the basic one and
+\n{serial.slope.naive} for S0-fp32; doubling the sequence quadruples the time. At
+$N=\n{serial.Nmax.h}$ the tuned kernel needs \n{serial.tuned.tmax}\,s for
+$1.7\times10^{10}$ pairs.
+
+In the head dimension the cost is not simply proportional (\cref{fig:serial}b). A
+pair costs $2(d+d_v)$ arithmetic operations plus one exponential and some fixed
+work. For the tuned kernel the multiply-adds are cheap enough for the exponential
+and the bookkeeping to show at small $d$: the fitted slope in $d$ is
+\n{serial.dslope.tuned}, and from $d=16$ to $d=256$ the time per pair grows by a
+factor of \n{serial.dratio.tuned} instead of 16. The scalar kernels are dominated
+by the multiply-adds at every $d$ and grow slightly faster than $d$
+(slope \n{serial.dslope.naive} for the naive one), because at $d=256$ the keys they
+stream through for every query no longer fit in the second-level cache.
+
+\paragraph{What the tuning buys.} At $N=16{,}384$ the naive single-precision kernel
+reaches \n{serial.gflops.naive}\,GFLOP/s, the basic blocked kernel
+\n{serial.gflops.basic}, and the tuned kernel \n{serial.gflops.tuned}, a factor of
+\n{serial.speedup.tuned} over the basic one. The two scalar kernels do not profit
+from the 512-bit setting used for the tuned kernel; compiled with the compiler's
+default vector width they reach \n{serial.gflops.naive.w256} and
+\n{serial.gflops.basic.w256}\,GFLOP/s, so the fairest statement is a factor of
+\n{serial.speedup.fair} between the best build of the basic kernel and the tuned
+one. Blocking alone gains nothing here: for these sizes the naive kernel's working
+set (one row of scores and the keys it streams through) is not what limits it; the
+scalar inner loops are. The double precision reference is \n{serial.fp64.ratio}
+times slower than its single-precision twin, which is why precision and algorithm
+are compared separately.
+
+\paragraph{Against the hardware limit.} A Sapphire Rapids core has two 512-bit
+fused multiply-add units, so at the \n{hw.freq.one}\,GHz it sustains alone its peak
+is $2\times16\times2\times\n{hw.freq.one}\approx\n{serial.peak}$\,GFLOP/s in single
+precision. The tuned kernel reaches \n{serial.peakpct}\% of that. Three measured
+effects decide how close it gets.
+
+\emph{Alignment of the data.} \Cref{tab:align} compares three builds of the same
+source that differ only in where arrays start. With the 16-byte alignment of
+\code{malloc} the kernel runs at \n{align.gflops.16}\,GFLOP/s and the processor's
+counters report \n{align.split.16} blocked split loads per thousand query--key
+pairs: nearly every 64-byte vector crosses a cache-line boundary. Aligned to 64
+bytes or to a page it runs at \n{align.gflops.4096}\,GFLOP/s, \n{align.gain.pct}\%
+faster, with $\n{align.splitcount.4096}$ such events in the whole run, and the
+instructions executed per cycle rise from \n{align.ipc.16} to \n{align.ipc.4096}.
+
+\inputifexists{report/generated/table_align.tex}
+
+\emph{Vector width.} The compiler's default for this processor is to prefer
+256-bit vectors; asking for 512-bit vectors (\code{-mprefer-vector-width=512})
+raises the throughput from \n{serial.gflops.w256} to \n{serial.gflops.w512}\,GFLOP/s
+at the same tile sizes (\n{serial.w512.gain.pct}\%), and all results in this report
+use that setting.
+
+\emph{Tile sizes.} The packed key tile of $B_k\times d$ numbers is read once per
+query row of the tile and must stay in the 48\,KiB first-level cache together with
+the row of scores being written (\cref{fig:tiles}). With $d=64$ the throughput
+peaks at $B_k=\n{tiles.used.bk}$ (\n{tiles.used.kib}\,KiB) and is
+\n{tiles.cliff.pct}\% lower at twice that size. Longer query tiles help, from
+\n{tiles.bq8.gflops}\,GFLOP/s at $B_q=8$ upwards, which is consistent with each key
+tile being brought into the cache less often per pair. All other runs use
+$B_q=\n{tiles.used.bq}$ and $B_k=\n{tiles.used.bk}$, which is within
+\n{tiles.used.below.pct}\% of the best combination measured
+($B_q=\n{tiles.best.bq}$) and leaves more query tiles per thread for the hybrid
+runs.
+
+\begin{figure}[t]
+\centering
+\figureifexists{serial_tiles.pdf}
+\caption{Useful GFLOP/s of the tuned kernel for every combination of tile sizes
+($N=16{,}384$, one core).}
+\label{fig:tiles}
+\end{figure}
+
+\subsection{Two measurement pitfalls}\label{sec:pitfalls}
+Both of the following were found because a result looked wrong, and both would have
+distorted every scaling curve of the next section.
+
+\paragraph{The clock needs seconds to rise.}\label{sec:ramp}
+In an early version of \cref{fig:serial}c, sequences up to 4{,}096 tokens appeared
+one third slower than longer ones. The cause is not the algorithm. Repeating a
+\n{ramp.ms.slow}\,ms problem 400 times in a row shows a step: for the first
+\n{ramp.seconds}\,s every repetition takes \n{ramp.ms.slow}\,ms, afterwards
+\n{ramp.ms.fast}\,ms, a ratio of \n{ramp.ratio}, which matches the ratio of the
+\n{hw.freq.one}\,GHz turbo clock to the 2.0\,GHz base clock. The processor raises its clock only after a
+few seconds of sustained load. A benchmark that warms up with one short repetition
+therefore measures short configurations at the base clock and long ones at the
+turbo clock, and a scaling curve built from such data has a spurious bend. Every
+CPU timing in this report is taken after a warm-up of at least five seconds (the
+exceptions, which measure something else, are listed in \cref{tab:environment}).
+
+\paragraph{Where the allocator puts an array.}\label{sec:alignment}
+With unaligned storage the first strong-scaling runs contained efficiencies
+\emph{above} one: \n{align.Emax.16} with \n{align.Emax.P.16} ranks, on one socket and
+at the same clock as the serial run. Nothing in the algorithm can produce that. The
+last column of \cref{tab:align} shows the cause. Whether a vector access splits
+depends on the address that the allocator returns for each array, and that depends
+on the sizes and the order of the allocations made before it, hence on $P$ and on
+the communication variant. Identical arithmetic then runs at different speeds in
+different configurations: over the no-communication control and the two ring
+variants at $P\le 8$ the efficiency ranged from \n{align.Emin.16} to
+\n{align.Emax.16}. With aligned storage the same twelve configurations lie between
+\n{align.Emin.4096} and \n{align.Emax.4096}. A ``superlinear speedup'' of this size
+would normally be explained by caches; here the counters show that it was an
+accident of memory placement, and that the comparison of communication variants in
+the next section would have been meaningless without the fix.

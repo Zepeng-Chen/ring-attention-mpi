@@ -1,0 +1,123 @@
+#!/bin/bash
+# Prepared single-node CPU validation payload. Queue and resources are supplied
+# to qsub after checking the site: at least 4 CPUs and 2 MPI slots on one node.
+# The current MPI tests use two OpenMP threads per rank.
+set -euo pipefail
+
+: "${PBS_JOBID:?run through PBS in a compute allocation}"
+: "${PBS_O_WORKDIR:?submit from the frozen source directory}"
+: "${PBS_NODEFILE:?PBS must provide the allocated MPI slot list}"
+[[ -r "$PBS_NODEFILE" ]] || { printf '%s\n' 'Cannot read PBS_NODEFILE' >&2; exit 2; }
+compute_host="$(hostname)"
+short_host="${compute_host%%.*}"
+if ! awk -v current="$short_host" 'NF {split($1, h, "."); if (h[1] == current) found=1} END {exit !found}' "$PBS_NODEFILE"; then
+    printf '%s\n' 'Current host is not in the allocation; refusing login-node execution.' >&2
+    exit 2
+fi
+cd "$PBS_O_WORKDIR"
+[[ -f CMakeLists.txt && -f SNAPSHOT.json ]] || { printf '%s\n' 'Expected a frozen source snapshot' >&2; exit 2; }
+run_dir="$(cd .. && pwd)"
+evidence_dir="$run_dir/evidence"
+mkdir -p "$evidence_dir"
+exec > "$evidence_dir/cpu-validation.out" 2> "$evidence_dir/cpu-validation.err"
+trap 'status=$?; printf "%s\n" "$status" > "$evidence_dir/exit-status.txt"; date -u "+%Y-%m-%dT%H:%M:%SZ" > "$evidence_dir/finished-utc.txt"; exit "$status"' EXIT
+trap 'exit 143' TERM
+trap 'exit 130' INT
+
+date -u '+%Y-%m-%dT%H:%M:%SZ'
+printf 'PBS_JOBID=%s\ncompute_host=%s\n' "$PBS_JOBID" "$compute_host"
+cp "$PBS_NODEFILE" "$evidence_dir/nodes.txt"
+cp SNAPSHOT.json "$evidence_dir/SNAPSHOT.json"
+sort "$PBS_NODEFILE" | uniq -c
+slots="$(awk 'NF {n++} END {print n+0}' "$PBS_NODEFILE")"
+nodes="$(awk 'NF {hosts[$1]=1} END {for(h in hosts) n++; print n+0}' "$PBS_NODEFILE")"
+[[ "$nodes" == 1 ]] || { printf '%s\n' 'This bootstrap template requires a single allocated node.' >&2; exit 2; }
+(( slots >= 2 )) || { printf '%s\n' 'At least two allocated MPI slots are required.' >&2; exit 2; }
+qstat -f "$PBS_JOBID" > "$evidence_dir/allocation.qstat"
+allocated_cpus="$(awk '$1 == "Resource_List.ncpus" && $2 == "=" {print $3}' "$evidence_dir/allocation.qstat")"
+[[ "$allocated_cpus" =~ ^[0-9]+$ ]] || { printf '%s\n' 'Cannot verify Resource_List.ncpus from qstat; stop before building.' >&2; exit 2; }
+(( allocated_cpus >= 4 )) || { printf '%s\n' 'CTest np=2 uses two threads per rank: at least four allocated CPUs are required.' >&2; exit 2; }
+
+if [[ -f scripts/hpc/environment.sh ]]; then
+    printf '%s\n' 'Loading source snapshot scripts/hpc/environment.sh' > "$evidence_dir/environment-choice.txt"
+    source scripts/hpc/environment.sh
+else
+    printf '%s\n' 'No verified environment.sh supplied; using the current job environment.' > "$evidence_dir/environment-choice.txt"
+fi
+if type module >/dev/null 2>&1; then module list > "$evidence_dir/modules.txt" 2>&1; fi
+for tool in cmake ctest python3 mpirun; do command -v "$tool"; done
+cmake --version
+mpirun --version > "$evidence_dir/mpi-version.txt"
+if ! awk '/Open MPI|OpenRTE/ {found=1} END {exit !found}' "$evidence_dir/mpi-version.txt"; then
+    printf '%s\n' 'This template uses Open MPI binding flags; verify the launcher before adapting it to another MPI.' >&2
+    exit 2
+fi
+if command -v lscpu >/dev/null 2>&1; then lscpu > "$evidence_dir/lscpu.txt"; fi
+
+export OMP_NUM_THREADS=2 OMP_DYNAMIC=FALSE OMP_PROC_BIND=close OMP_PLACES=cores
+# Do not inherit the laptop runner's oversubscription/unbound settings.
+unset OMPI_MCA_rmaps_base_oversubscribe OMPI_MCA_hwloc_base_binding_policy
+printf 'OMP_NUM_THREADS=%s\nOMP_DYNAMIC=%s\nOMP_PROC_BIND=%s\nOMP_PLACES=%s\nallocated_cpus=%s\nmpi_slots=%s\n' \
+    "$OMP_NUM_THREADS" "$OMP_DYNAMIC" "$OMP_PROC_BIND" "$OMP_PLACES" "$allocated_cpus" "$slots" > "$evidence_dir/binding.txt"
+build_dir="$run_dir/build-cpu"
+mkdir "$build_dir"
+mpi_launcher="$(command -v mpirun)"
+cmake -S . -B "$build_dir" -DCMAKE_BUILD_TYPE=Release \
+    -DATTN_ENABLE_MPI=ON -DATTN_ENABLE_OPENMP=ON -DATTN_ENABLE_CUDA=OFF \
+    -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+    "-DMPIEXEC_EXECUTABLE=$mpi_launcher" \
+    '-DMPIEXEC_PREFLAGS=--map-by;slot:PE=2;--bind-to;core;--nooversubscribe;--report-bindings'
+cmake --build "$build_dir" --parallel 4
+cp "$build_dir/CMakeCache.txt" "$evidence_dir/CMakeCache.txt"
+cp "$build_dir/compile_commands.json" "$evidence_dir/compile_commands.json"
+ctest --test-dir "$build_dir" --parallel 1 --output-on-failure \
+    -R '^(attention_correctness|core_validation|mpi_validation_[12])$' \
+    > "$evidence_dir/ctest.log" 2>&1
+
+cluster_label="${ATTN_CLUSTER:-PBS-unclassified}"
+for implementation in allgather iallgather ring overlap rma_get rma_put; do
+    command=("$mpi_launcher" --map-by slot:PE=2 --bind-to core --nooversubscribe --report-bindings \
+        -n 2 "$build_dir/attn_bench" --impl "$implementation" \
+        --N 37 --Nq 19 --d 13 --dv 7 --H 14 --Hkv 2 --threads 2 \
+        --partition zigzag --mask causal --block-q 4 --block-k 8 \
+        --alpha 50 --validate 19 --warmup 1 --reps 3 \
+        --cluster "$cluster_label" --purpose validation \
+        --csv "$evidence_dir/validation.csv" \
+        --rank-csv "$evidence_dir/ranks-$implementation")
+    printf '%q ' "${command[@]}" >> "$evidence_dir/commands.txt"
+    printf '\n' >> "$evidence_dir/commands.txt"
+    "${command[@]}"
+done
+
+python3 - "$evidence_dir" <<'PY'
+import csv
+import json
+import sys
+from pathlib import Path
+evidence = Path(sys.argv[1])
+implementations = {'allgather', 'iallgather', 'ring', 'overlap', 'rma_get', 'rma_put'}
+with (evidence / 'validation.csv').open(newline='') as source:
+    rows = list(csv.DictReader(source))
+expected = {(impl, str(rep)) for impl in implementations for rep in range(3)}
+actual = {(row['impl'], row['rep']) for row in rows}
+if len(rows) != 18 or actual != expected:
+    raise SystemExit('Missing or duplicate measured configurations/repetitions')
+for row in rows:
+    if row['validation'] != 'passed' or int(row['nan_inf']) != 0 or int(row['val_rows']) != 19:
+        raise SystemExit('Validation failed or did not cover every query')
+    if int(row['ranks']) != 2 or int(row['threads']) != 2 or int(row['nodes']) != 1:
+        raise SystemExit('Unexpected execution topology')
+for impl in implementations:
+    for rank in range(2):
+        with (evidence / f'ranks-{impl}.rank{rank}.csv').open(newline='') as source:
+            records = list(csv.DictReader(source))
+        if len(records) != 3 or {r['rep'] for r in records} != {'0', '1', '2'}:
+            raise SystemExit('Incomplete per-rank evidence')
+summary = {'purpose': 'cluster correctness bootstrap', 'configurations': 6,
+           'measured_repetitions_per_configuration': 3, 'warmup_per_configuration': 1,
+           'all_queries_validated': True,
+           'max_abs_error': max(float(r['max_abs_err']) for r in rows),
+           'status': 'passed'}
+(evidence / 'validation-summary.json').write_text(json.dumps(summary, indent=2) + '\n')
+print(json.dumps(summary, indent=2))
+PY

@@ -1,0 +1,124 @@
+\section{Discussion}\label{sec:discussion}
+
+\paragraph{How the problem was parallelised.} There are three levels, each with its
+own technique. \emph{Across the sequence}, token positions are divided among MPI
+ranks: a rank owns the queries, keys, values and running state of its positions,
+and only keys and values travel, by all-gather, ring or one-sided pull.
+\emph{Inside a rank}, the (head, query tile) jobs are divided among OpenMP threads
+with a static schedule; a job writes only its own rows of state, so threads need
+no locks, and only the main thread calls MPI. On a GPU the same jobs become thread
+blocks of 32 query rows. \emph{Inside a tile}, the pairs are vectorised: sixteen
+single-precision lanes per instruction on the CPU, one warp of 32 threads per
+query row on the GPU. Only the first level communicates; the other two share
+memory and need no synchronisation beyond the end of a parallel loop or a kernel.
+
+\paragraph{Where the time goes.} The measurements separate three costs that a
+single efficiency number mixes.
+\begin{itemize}
+\item \textbf{The serial kernel.} Everything else is measured against it, so it
+was tuned first. Most of the gain came from two decisions that are not about the
+algorithm: storing every array on a cache-line boundary (a factor of
+\n{align.speedup}) and letting the compiler use the full vector width
+(\n{serial.w512.gain.pct}\%).
+\item \textbf{The machine under load.} Inside one node, for shards of more than a
+few hundred rows, almost all of the loss is already in the control: a core
+delivers \n{hw.eff.72} to \n{strong.Ehw.big.72} of its solo throughput when all 72
+are busy (the value differs a little between nodes), mostly because a full node
+runs at a lower clock. That factor, not communication, is the efficiency of the
+one-node runs with large shards.
+\item \textbf{Communication.} For a given configuration it is governed by the rows
+a rank owns. With single-thread ranks inside a node a two-sided ring loses half its
+speed at about \n{model.cstar.fit} rows per rank, and the fitted form puts the 5\%
+mark near \n{model.c95.fit} rows. Across nodes the overlapped ring stays close to
+the same curve, the blocking ring and the all-gather lose more
+(\n{strong.Ecomm.ring.big.288} and \n{strong.Ecomm.allgather.big.288} instead of
+\n{strong.Ecomm.big.288} at 288 ranks for $N=131{,}072$), and the one-sided variants
+become \n{strong.slow.rma_get.big.288} to \n{strong.slow.rma_get.small.288} times
+slower than a run without communication. Faster ranks (threads, GPUs) move the
+curve towards larger shards unless the transfer overlaps with the computation,
+which it did for GPUs and, across nodes, did not for CPU ranks.
+\end{itemize}
+
+\paragraph{Which parts communicate most.} Per ring step a rank receives one shard
+of keys and values, $(d+d_v)H_{kv}\,c$ numbers, and uses it for $c^2H$ query--key
+pairs; nothing else is exchanged, and queries and state never move. The traffic of
+a whole run is about $N(d+d_v)H_{kv}$ numbers per rank whatever the strategy, so the
+strategies differ in \emph{when} and \emph{how} the bytes move, not in how many:
+the all-gather moves them at once and stores all of them (\n{mem.ratio} times the
+memory of the ring at 72 ranks and $N=\n{mem.N.h}$); the ring moves one shard per step; the one-sided
+pull can skip shards that a mask makes useless, which halves the traffic for a
+contiguous causal partition and saves nothing for the balanced one (a saving that
+outweighed the imbalance only across nodes, where the pull is slow in any case). Grouped-query
+attention is the one lever that reduces the bytes themselves, by the group factor
+$G$.
+
+\paragraph{Design choices that mattered.}
+\begin{itemize}
+\item \emph{One compute core, many ways to feed it.} Because every variant calls
+the same kernel on the same blocks, two variants differ only in how the blocks are
+moved, stored and synchronised. The no-communication control M0 gives that
+difference a scale: $T_\text{M0}/T$ is the speed of a variant relative to a run that
+exchanges nothing, and $T_S/(P\,T_\text{M0})$ is the efficiency of that run. The
+control is not a perfect isolator (it holds the whole sequence and copies blocks
+instead of receiving them), but the kernel time of both agreed within a few per
+cent.
+\item \emph{Online softmax as the interface.} A constant-size state per query that
+can absorb key blocks in any order is what allows a ring, a pull in arbitrary
+order and a GPU kernel to share one definition of correctness.
+\item \emph{Partition by work, not by rows.} With a causal mask the zigzag
+partition makes a ring \n{causal.zigzag.gain.overlap.288} to
+\n{causal.zigzag.gain.overlap.72} times faster on the CPU, and
+\n{gpu2.one.causal.gain} times with two GPUs, where a contiguous partition is less
+unbalanced. For the
+one-sided pull across nodes the contiguous partition was the faster of the two,
+because it moves half the bytes.
+\item \emph{Measure the measurement.} Two artefacts, a clock that needs seconds to
+rise and arrays that the allocator places differently for every rank count, each
+produced plausible but wrong scaling curves, including a superlinear speedup. Both
+were found by asking why a number looked too good, and both are now controlled by
+the protocol and demonstrated by their own experiments.
+\end{itemize}
+
+\paragraph{What I would choose.} For a sequence of $N$ tokens on $P$ ranks of this
+machine: inside one node any of the strategies works, and the one-sided pull was
+the cheapest when ranks own few rows; across nodes use the overlapped ring and
+keep a rank above a few hundred rows, if necessary by using fewer ranks with more
+threads; do not all-gather when memory per rank matters; with a causal mask use
+the zigzag partition with a ring. The fastest configuration measured on four
+nodes for $N=131{,}072$ was \n{hybrid.best.ranks.288} ranks of
+\n{hybrid.best.threads.288} threads with the overlapped ring:
+\n{hybrid.best.time.288}\,s, a speedup of \n{hybrid.speedup.288}. Two GPUs do the
+same problem in \n{gpu2.two.T.host.overlap.N131072}\,s. These are choices for this
+cluster and these shapes, not rules for other machines.
+
+\paragraph{Limits of the evidence.} All results come from one cluster whose MPI
+installation uses TCP between nodes. That a transfer does not advance while the
+peer computes was shown for that installation with a two-rank microbenchmark and
+is consistent with the application runs; it is not a property of MPI, and an
+interconnect with remote memory access in hardware could reverse it. The
+decomposition into $E_0$ and $E_\text{comm}$ is an identity around a control, not a
+separation of causes, and the clock was sampled, not integrated; power was not
+measured. The fitted curve describes single-thread ranks inside one node; its
+constant is \n{model.cstar.ratio} times what the microbenchmark predicted, and
+outside that setting rows per rank are one variable among several. Every
+configuration was measured three times in a row within one job, with one seed, so
+differences of a few per cent are not resolved. The partition is static; the four
+nodes used were equally fast, so its behaviour on unequal nodes was not tested.
+The largest CPU run uses 288 cores and the largest GPU run two devices. The GPU
+kernels were not profiled, GPU runs warm up with one repetition only, and what
+limits the exchange between GPU nodes at small sizes was not found. Only the
+forward pass of one layer with as many queries as keys was studied: not training,
+and not decoding with few queries and a long key cache, where the balance of
+computation and communication is different. The real-data conclusions rest on one
+model, one text and three layers.
+
+\paragraph{What exact attention showed about the data.} In a real 24-layer model
+at a context of 32{,}768 tokens the three layers examined behave in three ways:
+the first is local, a middle layer has heads that put most of their probability on
+the first token of the sequence, and the last is diffuse. For the windows tested, a
+sliding window alone therefore changes the output of the middle layer completely,
+keeping a few sink tokens repairs that layer, and even then a 1{,}024-token window
+changes the output of the last layer by a third. These are changes of single
+attention outputs for fixed inputs, not of what the model finally predicts. Exact
+attention is the ground truth that makes such statements possible, and the
+distributed scheme of this report is one way to afford it.

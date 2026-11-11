@@ -1,0 +1,28 @@
+\section{Glossary}\label{app:glossary}
+\begin{description}[leftmargin=2.2em,style=nextline,itemsep=1pt,font=\normalfont\bfseries]
+\small
+\item[Query, key, value ($Q$, $K$, $V$)] The three vectors each token contributes to attention. A query asks, keys are matched against it, and values are what gets averaged.
+\item[Head; MHA; GQA] An independent copy of the attention operation. Multi-head attention gives every head its own keys and values; grouped-query attention lets $G$ query heads share one key/value head.
+\item[Softmax] The map from scores to positive weights that sum to one, $p_j=e^{s_j}/\sum_{j'}e^{s_{j'}}$.
+\item[Online softmax] Maintaining $(m,\ell,a)$ so that keys can be processed block by block in any order (\cref{eq:online}).
+\item[Causal mask; window; sink] Causal: a query may only use keys at earlier or equal positions. Window: only the last $w$ keys. Sink: the first few tokens of the sequence, which many heads attend to regardless of content.
+\item[RoPE] Rotary position embedding: the model rotates queries and keys by an angle that depends on token position before the dot product. The extracted real tensors already include it.
+\item[Rank; shard; rows per rank $c$] An MPI process; the part of the sequence it owns; $c=N/P$.
+\item[Contiguous / zigzag partition] One run of positions per rank, or one early plus one late chunk per rank.
+\item[All-gather; ring] Copy every shard to every rank at once; or pass shards from neighbour to neighbour so that each visits every rank.
+\item[Two-sided / one-sided communication (RMA)] Send/receive pairs in which both ranks call MPI; or direct access to another rank's exposed memory.
+\item[Window; epoch; passive / active target; fence] The exposed memory region; the period in which access is legal; whether the target takes part in synchronisation; the collective call that ends an active-target epoch.
+\item[Progress] The internal work an MPI library must do to move data; some libraries only do it inside MPI calls.
+\item[Control M0; $E_0$; $E_\text{comm}$] A run that gathers all keys and values before the clock starts and then computes without calling MPI; its efficiency $T_S/(P\,T_\text{M0})$; the speed of a variant relative to it, $T_\text{M0}/T$.
+\item[Host-staged / CUDA-aware MPI] Exchange host copies of the blocks with MPI and upload each received block to the GPU, or hand device pointers to the MPI library.
+\item[Tile; packing] A small block of query rows or keys that fits in cache; copying a key tile into a layout that suits the inner loop.
+\item[Useful FLOPs; GFLOP/s; TFLOP/s] $2(d+d_v)$ floating-point operations per allowed query--key pair and head; $10^9$ or $10^{12}$ of them per second.
+\item[Clock; turbo] The frequency at which a core executes instructions. The processor raises it above the base value under load (turbo) and lowers it again when many cores are active.
+\item[Ping-pong] A microbenchmark in which one rank sends a message to another and receives it back; half the round trip is the time per message.
+\item[Warm-up; repetition] An untimed execution of a configuration before it is measured; one timed execution of it.
+\item[Speedup; efficiency] $S=T_S/T_P$ with $T_S$ the best single-core time; $E=S/\text{cores}$.
+\item[Strong / weak scaling] More cores for the same problem; or a problem that grows with the cores.
+\end{description}
+
+\section{Environment and reproduction}\label{app:environment}
+\input{report/sections/environment.tex}

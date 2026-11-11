@@ -1,0 +1,70 @@
+\section{Background: how exact attention is made affordable}\label{sec:background}
+
+This section places the project for a reader who has not met the two techniques it
+builds on. Both are \emph{exact}: they reorganise the computation of
+\cref{eq:attention} (\cref{sec:algorithm}) without changing its result.
+
+\paragraph{Two walls: time and memory.} For $N$ tokens one attention head forms
+$N^2$ query--key scores. The straightforward implementation stores them: at
+$N=131{,}072$ the score matrix of a single head has $1.7\times10^{10}$ entries, 64\,GiB
+in single precision, more than most accelerators hold. Context windows of language
+models have grown from a few thousand tokens to hundreds of thousands, so the
+$N\times N$ matrix became a wall long before the $N^2$ arithmetic did.
+
+\paragraph{Inside one device: FlashAttention.} FlashAttention~\cite{flash} removes
+the memory wall on a single GPU. It never materialises the score matrix. Queries
+and keys are processed in \emph{tiles} small enough for the fast on-chip memory;
+the scores of a tile are computed, used and discarded; and the tiles of one query
+are combined with the online softmax of \cref{sec:algorithm}, which needs only a
+running maximum, a running sum and a running output per query. Memory becomes
+linear in $N$, and the kernel is faster because it moves far less data between the
+GPU's main memory and its on-chip memory. Later versions improved the division of
+work on the GPU~\cite{flash2} and exploited newer hardware~\cite{flash3}. The
+approach is now the default way to compute attention: for example, the standard
+attention function of PyTorch selects a FlashAttention implementation when one is
+available~\cite{sdpa}. In this project the tuned CPU kernel (\cref{sec:serial}) and
+the GPU kernel K2 (\cref{sec:gpu}) are hand-written kernels of this kind, tiled and
+based on the online softmax; K1, which stores the scores, is the contrast. No
+FlashAttention code or other library is used.
+
+\paragraph{Across devices: sequence parallelism.} Tiling fixes the memory of the
+attention kernel, but the queries, keys, values and outputs of a whole sequence
+must still fit on one device. When they do not, the sequence itself is divided
+among devices. Two designs are in use.
+\begin{itemize}
+\item \textbf{Ring Attention}~\cite{ring} gives each device one block of the
+sequence. A device keeps its queries and lets the key/value blocks of all devices
+pass by, one per step, around a ring; the online softmax absorbs them in whatever
+order they arrive. The context length that can be handled grows with the number of
+devices. Two refinements matter for this report. With a causal mask the devices
+holding late tokens have far more work than those holding early ones; Striped
+Attention~\cite{striped} removes the imbalance by assigning tokens to devices in
+stripes instead of contiguous blocks. NVIDIA's training framework implements the
+ring as ``context parallelism'' with FlashAttention kernels on each GPU, and
+balances the causal work by giving each device one early and one late chunk of the
+sequence~\cite{megatroncp}; that assignment is the zigzag partition used in
+\cref{sec:causal}.
+\item \textbf{DeepSpeed-Ulysses}~\cite{ulysses} also splits the sequence, but before
+each attention layer it redistributes the data with an all-to-all exchange so that
+every device holds the \emph{whole} sequence for a subset of the heads, computes
+those heads locally, and redistributes back. The volume each device sends stays
+constant when sequence length and device count grow together, but the number of
+devices cannot exceed the number of heads, and each device must hold a full-length
+sequence for its heads. The two
+designs can be combined on a two-dimensional grid of devices~\cite{usp}.
+\end{itemize}
+
+\paragraph{What this project takes from them, and what it adds.} I implement the
+ring family: sequence sharding, the online softmax, the ring exchange, a
+one-sided alternative, the balanced causal partition, and tiled kernels for CPU and
+GPU. The setting differs from the papers in one respect that shapes the results.
+There a rank is a GPU that owns tens of thousands of tokens; here a rank is usually
+a CPU core that owns a few hundred to a few thousand, which is exactly the regime
+where communication starts to matter and can be measured. The published work
+reports end-to-end training throughput; this report isolates the attention operator
+and asks the parallel-computing questions underneath it: what one core can do,
+what a full node costs, when communication shows, whether ``overlapped'' and
+``one-sided'' transfers really overlap, and how the answers change when the local
+kernel becomes a GPU. Ulysses is not implemented; its all-to-all pattern and its
+limit of one device per head (the scaling runs here use a single head) make it a
+different experiment.

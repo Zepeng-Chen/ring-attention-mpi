@@ -1,0 +1,77 @@
+\begin{table}[h]
+\centering\small
+\begin{tabularx}{\textwidth}{@{}l Y@{}}
+\toprule
+Item & Value (recorded by every job in its \code{environment.txt})\\
+\midrule
+Cluster & NUS Vanda; all results in this report\\
+CPU nodes & 2 $\times$ Intel Xeon Platinum 8452Y (Sapphire Rapids), 36 cores per socket, 72 cores per node, no hyper-threading; 48\,KiB L1d and 2\,MiB L2 per core, 67.5\,MiB L3 per socket; 512\,GiB memory; two NUMA domains\\
+Clock & 2.0\,GHz base; \n{hw.freq.1}\,GHz sampled with up to nine active cores of a socket, \n{hw.freq.72}\,GHz with all 72 active (\cref{fig:hardware})\\
+Network & shared memory inside a node; between nodes TCP over Ethernet (Open MPI selected the \code{ob1} messaging layer with the \code{sm} and \code{tcp} transports; the UCX layer did not initialise on the nodes' RDMA-capable Ethernet adapters)\\
+CPU software & GCC 14.3.0, \code{-O3 -march=native} (\code{sapphirerapids}), \code{-mprefer-vector-width=512} for the compute core, all tensors and scratch buffers aligned to 4096 bytes; Open MPI 5.0.8 (PRRTE 3.0.11, UCX 1.19.0); OpenMP 4.5 (libgomp); CMake 3.31.8\\
+GPU nodes & 2 $\times$ NVIDIA A40 (46\,GiB, compute capability 8.6) per node, driver 575.57.08; a GPU job receives 36 cores per GPU, of which the benchmark uses one thread per rank\\
+GPU software & NVIDIA HPC SDK 26.1: \code{nvcc} 12.9, HPC-X 2.25.1 (CUDA-aware Open MPI 4.1.9, UCX); host code compiled with GCC 11.5. This MPI has no PBS support: on two nodes the second rank is started over ssh from the node file\\
+Tile sizes & $B_q=\n{tiles.used.bq}$ query rows, $B_k=\n{tiles.used.bk}$ keys (\cref{fig:tiles})\\
+Binding & one core per rank (\code{--map-by slot:PE=$T$ --bind-to core}); OpenMP threads pinned to cores (\code{OMP\_PLACES=cores}, \code{OMP\_PROC\_BIND=close}); ranks fill socket 0, then socket 1, then the next node\\
+Protocol, CPU timings & untimed warm-up of at least one repetition and at least five seconds, then three measured repetitions in a row; time of a repetition = maximum over ranks; reported value = median of the three; each repetition validated on sampled rows\\
+Protocol, GPU timings & one untimed warm-up repetition (no minimum time), then three measured repetitions, each validated on sampled rows; the time of a repetition includes the upload of the first block and the download of the result\\
+Other protocols & peak memory: one run per configuration, no warm-up, no validation copy. Clock ramp: 400 consecutive repetitions without warm-up. Hardware counters (\cref{tab:align}): fixed work under \code{perf stat}, no validation. Network microbenchmark: its own repetition scheme. Unit tests: every row compared\\
+Real data & Qwen2.5-0.5B (Hugging Face), PyTorch 2.5.0 and transformers 4.47.1 for the extraction only; text: Project Gutenberg \#2600. The SHA-256 digests of the model files, the text and the extracted tensors are kept with the results\\
+\bottomrule
+\end{tabularx}
+\caption{Hardware, software and measurement protocol.}
+\label{tab:environment}
+\end{table}
+
+\begin{sloppypar}
+\paragraph{Source code.} The code of this project, with a README that explains how
+to build and run it, is in the public repository
+\url{https://github.com/Zepeng-Chen/ring-attention-mpi}. No BLAS, LAPACK or other
+numerical library is used; the attention kernels, the MPI strategies and the CUDA
+kernels are written out in \code{src/} and \code{include/attn/}.
+
+\paragraph{Reproduction.} The README lists the build and run commands. Each experiment
+of this report is one suite of \code{scripts/hpc/jobs/experiment.pbs} (CPU),
+\code{gpu\_experiment.pbs} (GPU), \code{real\_data.pbs} or \code{unit\_tests.pbs};
+\code{scripts/hpc/cluster.sh} stages an immutable copy of the source, named by a hash
+of exactly the staged files and checked against that hash after copying, submits
+the job and retrieves the result directory. Configurations of up to 72 cores ran in
+one-node jobs and larger ones in a four-node job, because the cluster charges for
+allocated cores. \code{scripts/build\_report.sh} deletes the generated figures,
+tables and numbers, rebuilds them and the PDF from the retrieved files, and stops if
+a number has no data, a figure is missing or a reference is undefined.
+
+\paragraph{One audited set of records.} Figures, tables and the measured values in
+the text are computed by three scripts from the same \n{audit.runs} run directories
+(\n{audit.files} result files). The directories are named explicitly in
+\code{results/selected\_runs.json}, together with the \n{audit.excluded} run
+directories that are \emph{not} used and the reason for each exclusion (measured
+with an earlier protocol or source, diagnostics, jobs that failed or never started);
+no script chooses a run by itself. Timings, throughputs, errors and statistics are
+never typed into the text; what is typed are descriptions of the hardware, of the
+inputs and of the experimental design. \code{scripts/audit\_results.py} checks the
+selected records before every build and stops it if a rule is broken: every run
+ended normally on Vanda; a validated repetition may fail only in the declared
+stress study (\n{audit.failed} of \n{audit.validated}); every timed configuration
+has its three repetitions with finite times, and CPU runs their five-second warm-up
+(the declared exceptions are those of \cref{tab:environment}); all CPU jobs were
+built from byte-identical compute and benchmark-driver sources and all GPU jobs
+from identical kernel sources, and the submitted compute and kernel sources are
+those files; the build flags and tile sizes are the stated ones; the unit tests ran
+on Vanda on exactly the submitted files. Two programs were changed after their
+records were computed, both as a result of a code review. The benchmark driver now
+rejects infinite values of two options (the warm-up time and the tolerance scale).
+The audit verifies that undoing those two conditions restores the measured file
+byte for byte, and that none of the \n{audit.driver.commands} recorded command
+lines gave either option such a value, so every recorded run is read the same way
+by both versions. The analysis program of \cref{sec:real} now handles two edge
+cases (a window whose weights all underflow, an exact output of zero). The audit
+checks on the stored records that neither case occurs in them
+(\n{audit.e11.records} records, smallest window probability
+$\n{audit.e11.minmass}$, no zero output), in which case the old and the new program
+compute the same values. The audit also records which result
+files each figure, table and group of numbers was computed from.
+\Cref{tab:provenance} is that record, by job.
+\end{sloppypar}
+
+\inputifexists{report/generated/table_provenance.tex}

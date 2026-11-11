@@ -1,0 +1,33 @@
+#!/bin/bash
+# Unit tests of the staged source on the cluster (one node, 16 cores, a few minutes):
+#   ctest                         core tests and the MPI tests registered with CMake
+#   attn_core_tests               every case against the fp64 reference on all rows
+#   attn_mpi_tests, P = 1..8      every MPI variant, two OpenMP threads per rank
+#   tests/analyze_test.py         the window statistics against an independent oracle
+#   tests/hpc_scripts_test.sh     the job-script logic with mocked scheduler commands
+#   tests/cli_test.sh             the option parsing of the benchmark driver
+# The build is the main build of the experiments (512-bit vectors preferred), so a
+# later experiment job of the same source tag reuses it.
+source "$ATTN_SRC/scripts/hpc/jobs/common.sh"
+detect_launcher
+build gcc-native-w512 "-DATTN_EXTRA_FLAGS=-mprefer-vector-width=512"
+status=0
+step() {   # step NAME LOGFILE command...
+    local name="$1" log="$2"; shift 2
+    if "$@" > "$log" 2>&1; then echo "$name,passed" >> unit-tests.csv; else echo "$name,failed" >> unit-tests.csv; status=3; tail -5 "$log"; fi
+}
+echo "test,result" > unit-tests.csv
+step ctest ctest.log ctest --test-dir "$BUILD" --output-on-failure
+step core core-tests.log "$BUILD/attn_core_tests"
+for P in 1 2 3 4 5 6 7 8; do
+    step "mpi-P$P" "mpi-tests-P$P.log" run "$P" 2 -- "$BUILD/attn_mpi_tests"
+done
+export OMP_NUM_THREADS=2
+step analyze analyze-test.log python3 "$ATTN_SRC/tests/analyze_test.py" \
+    mpirun "${MPI_LAUNCH[@]}" -np 2 --bind-to none "${MPI_ENV[@]}" "$BUILD/attn_analyze"
+step scripts scripts-test.log bash "$ATTN_SRC/tests/hpc_scripts_test.sh"
+export OMP_NUM_THREADS=1
+step cli cli-test.log bash "$ATTN_SRC/tests/cli_test.sh" \
+    mpirun "${MPI_LAUNCH[@]}" -np 1 --bind-to none "${MPI_ENV[@]}" "$BUILD/attn_bench"
+cat unit-tests.csv
+exit "$status"

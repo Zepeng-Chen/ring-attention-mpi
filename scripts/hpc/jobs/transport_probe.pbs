@@ -1,0 +1,39 @@
+#!/bin/bash
+# Which transport does MPI use between nodes, and for one-sided operations?
+# Diagnostic: selection logs plus the microbenchmark under different settings.
+source "$ATTN_SRC/scripts/hpc/jobs/common.sh"
+detect_launcher
+build gcc-native
+set +e
+{
+    echo "--- network devices"; ls /sys/class/infiniband 2>/dev/null; ip -br addr 2>/dev/null | head -8
+    echo "--- ucx"; command -v ucx_info && ucx_info -v | head -3; ucx_info -d 2>/dev/null | grep -E "Transport:|Device:" | sort | uniq -c | head -30
+    echo "--- libfabric providers"; command -v fi_info && fi_info -l 2>/dev/null | grep -E "^[a-z]" | head -20
+    echo "--- ompi components"; ompi_info 2>/dev/null | grep -E "MCA (pml|btl|osc|mtl):" | cut -c1-90
+} > transport.txt 2>&1
+N="$BUILD/attn_netbench"
+per=$(( SLOTS / NODES ))
+i=0
+while read -r label flags; do
+    i=$((i + 1))
+    echo "### $label: $flags"
+    timeout 300 mpirun "${MPI_LAUNCH[@]}" -np "$SLOTS" --map-by slot:PE=1 --bind-to core "${MPI_ENV[@]}" $flags \
+        --mca pml_base_verbose 10 --mca osc_base_verbose 10 --mca btl_base_verbose 5 \
+        "$N" --cluster "$label" --budget 0.1 --csv "$ATTN_RUN/netbench-$label.csv" < /dev/null > "select-$label.log" 2>&1
+    echo "exit=$?"
+    grep -iE "select(ed)?:? |selected component|component .* selected|osc.*(select|priority)|pml.*select" "select-$label.log" | sed 's/^\[[^]]*\] //' | sort | uniq -c | sort -rn | head -8
+done <<LIST
+default
+ucx-any --mca pml ucx --mca opal_common_ucx_tls any --mca opal_common_ucx_devices any
+ucx-any-osc --mca pml ucx --mca osc ucx --mca opal_common_ucx_tls any --mca opal_common_ucx_devices any
+cm-ofi --mca pml cm --mca mtl ofi
+LIST
+python3 - <<'PY'
+import csv, glob, io
+for f in sorted(glob.glob('netbench-*.csv')):
+    rows = list(csv.DictReader(io.StringIO(open(f, 'rb').read().replace(b'\0', b'').decode())))
+    print('==', f)
+    for r in rows:
+        if r['same_node'] == '0' and int(r['bytes']) in (0, 1024, 65536, 1048576, 16777216):
+            print(f"  {r['mode']:18s} {int(r['bytes']):9d} B  {float(r['seconds'])*1e6:12.1f} us  {float(r['mb_per_s']):9.1f} MB/s")
+PY

@@ -1,0 +1,31 @@
+# CMake build directories
+build/
+build-*/
+cmake-build-*/
+
+# Compiled files
+*.o
+*.a
+*.so
+*.dylib
+
+# macOS
+.DS_Store
+
+# VS Code local configuration
+.vscode/
+
+# Development evidence is retained locally, outside the submission bundle.
+results/
+data/
+__pycache__/
+*.pyc
+*.aux
+*.fls
+*.fdb_latexmk
+*.log
+*.out
+*.synctex.gz
+
+# Previews of the report figures (the PDF versions are tracked)
+report/figures/*.png

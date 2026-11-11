@@ -1,14 +1,214 @@
-# Ring Attention with MPI
+# Exact attention across ranks (MPI + OpenMP + CUDA)
 
-## first time config
+DSA5208 Project 3, Chen Zepeng (A0156784N).
+
+The code computes exact softmax attention when queries, keys and values are
+split by token position across MPI ranks. One hand-written compute core is fed
+by several communication strategies (all-gather, ring, one-sided), threaded
+with OpenMP, and mirrored by three CUDA kernels. No BLAS/LAPACK/cuBLAS/cuDNN is
+used. The report is built to `output/pdf/report.pdf` (`scripts/build_report.sh`);
+this file explains how to build and run the code.
+
+## Layout
+
+| Path | Content |
+| --- | --- |
+| `include/attn/core.hpp`, `src/core.cpp` | data layout, masks, partitions, synthetic data, the serial kernels (naive two-pass reference in fp64/fp32, blocked `basic`, blocked `tuned`), online softmax |
+| `include/attn/distributed.hpp`, `src/distributed.cpp` | the MPI strategies around the shared core, per-rank timers and counters |
+| `include/attn/gpu.hpp`, `src/gpu_kernels.cu` | CUDA kernels K0/K1/K2 and the device-side state |
+| `apps/attn_bench.cpp` | CPU driver: serial baselines and every MPI(+OpenMP) variant, validation, CSV output |
+| `apps/attn_gpu_bench.cpp` | MPI+CUDA driver: one GPU per rank, host-staged or CUDA-aware ring |
+| `apps/attn_netbench.cpp` | MPI microbenchmarks: latency, bandwidth, progress while the peer computes |
+| `apps/attn_analyze.cpp` | statistics of real attention rows (entropy, locality, window-approximation error) |
+| `tests/` | correctness tests: `core_tests.cpp` and `mpi_tests.cpp` (`ctest`), `analyze_test.py` (the analysis program against an independent recomputation), `cli_test.sh` (option parsing of the benchmark driver), `hpc_scripts_test.sh` (job-script logic with mocked scheduler commands) |
+| `scripts/extract_qkv.py` | dumps real Q/K/V and the reference output of a language model (data preparation only) |
+| `scripts/hpc/` | cluster helper, environment files and the PBS job scripts used for every result |
+| `scripts/audit_results.py`, `results/selected_runs.json` | which run directories the report uses, and the rules they must satisfy |
+| `scripts/build_report.sh`, `scripts/make_figures.py`, `scripts/make_tables.py`, `scripts/make_numbers.py` | figures, tables and every number quoted in the report, from the result CSVs (`scripts/results_io.py`, `scripts/plotstyle.py` are shared helpers) |
+| `report/` | LaTeX source of the report (`report.tex`, `sections/`); `report/generated/` is written by the scripts above |
+| `src/attention.cpp`, `src/main.cpp`, `include/attention.hpp` | my first serial prototype, kept for reference (`ring_attention_mpi` target) |
+
+## Build
+
+Requirements: CMake >= 3.16, a C++17 compiler, MPI-3 (one-sided communication),
+OpenMP. CUDA is optional.
 
 ```bash
-cmake -S . -B build
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release          # add -DATTN_NATIVE=ON on the machine that runs it
+cmake --build build -j 8
+ctest --test-dir build --output-on-failure
 ```
 
-## build the project
+Options: `ATTN_ENABLE_OPENMP` (ON), `ATTN_ENABLE_MPI` (ON), `ATTN_ENABLE_CUDA`
+(OFF), `ATTN_NATIVE` (OFF, adds `-march=native`), `ATTN_SANITIZERS` (OFF),
+`ATTN_EXTRA_FLAGS` (extra flags for the kernel, e.g. `-mprefer-vector-width=512`),
+`ATTN_ALIGNMENT` (4096; alignment in bytes of every tensor and scratch buffer:
+16 = plain `malloc`, 64 = cache line, 4096 = page. With 512-bit vectors the
+16-byte setting is about 1.5 times slower and makes timings depend on where the
+allocator places each array; it exists only for the comparison in the report).
+
+On Vanda (the results in the report):
 
 ```bash
-cmake --build build
-./build/ring_attention_mpi
+# CPU: GCC 14.3, Open MPI 5.0.8                      (scripts/hpc/vanda_env.sh)
+module load OpenMPI/5.0.8-GCC-14.3.0 CMake/3.31.8-GCCcore-14.3.0
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DATTN_NATIVE=ON \
+      -DATTN_EXTRA_FLAGS=-mprefer-vector-width=512 && cmake --build build -j 8
+
+# GPU: NVIDIA HPC SDK 26.1 with CUDA-aware Open MPI   (scripts/hpc/vanda_gpu_env.sh)
+module load nvhpc-hpcx-cuda12/26.1
+export OMPI_CXX=g++
+cmake -S . -B build-gpu -DCMAKE_BUILD_TYPE=Release -DATTN_ENABLE_CUDA=ON -DATTN_ENABLE_OPENMP=OFF \
+      -DCMAKE_CXX_COMPILER=g++ && cmake --build build-gpu -j 8
 ```
+
+Compile inside a job, not on the login node (Vanda's login nodes are virtual
+machines; the job scripts build on the compute node they run on). With this Open
+MPI module `mpirun` needs `--prefix $(dirname $(dirname $(which prted)))` and
+`-x LD_LIBRARY_PATH -x PATH`; `scripts/hpc/jobs/common.sh` does this. The MPI of
+the GPU toolchain has no PBS support: on more than one node pass
+`--hostfile $PBS_NODEFILE` (also done by `common.sh`).
+
+## Run
+
+```bash
+# serial baselines (one rank)
+mpirun -n 1 build/attn_bench --impl S1 --kernel tuned --N 16384
+mpirun -n 1 build/attn_bench --impl S0-fp32 --N 16384          # naive two-pass control
+
+# MPI variants: local (no-communication control), allgather, iallgather, ring, overlap, rma_get, rma_put
+mpirun -n 8 build/attn_bench --impl overlap --N 65536 --validate 64
+
+# MPI + OpenMP: 4 ranks x 18 threads
+mpirun -n 4 --map-by slot:PE=18 --bind-to core build/attn_bench --impl overlap --threads 18 --N 131072
+
+# causal mask and partition
+mpirun -n 8 build/attn_bench --impl rma_get --mask causal --partition zigzag --N 65536
+
+# GPU: kernel k0|k1|k2; two GPUs with host-staged or CUDA-aware exchange
+mpirun -n 1 build-gpu/attn_gpu_bench --kernel k2 --N 131072
+mpirun -n 2 build-gpu/attn_gpu_bench --kernel k2 --comm aware --schedule overlap --N 65536
+```
+
+Main options of `attn_bench` (`--help` lists all): `--N`, `--Nq`, `--d`, `--dv`,
+`--H`, `--Hkv` (grouped-query attention when `Hkv < H`), `--mask
+none|causal|window|sink-window` with `--window`/`--sink`, `--partition
+contiguous|zigzag`, `--block-q`, `--block-k` (tile sizes; defaults 128 and 96, the
+measured optimum for `d = 64`), `--kernel tuned|basic`,
+`--threads`, `--poll-tiles`, `--fetch-order`, `--data synthetic|file:<dir>`,
+`--alpha` (scales Q to stress the softmax), `--validate R`, `--warmup`, `--reps`,
+`--warmup-seconds s` (keep warming up for at least `s` seconds; the report uses 5),
+`--csv`, `--rank-csv`, `--trace-csv`, `--mha-control 1`, `--oref <file>`,
+`--tolerance-scale x`.
+
+Each run prints or appends one CSV line per repetition: rank-maximum and
+rank-mean times (total, compute, blocked in MPI), bytes received, useful FLOPs,
+peak memory, validation errors and the exact command.
+
+## Validation
+
+`--validate R` compares `R` evenly spaced query rows (each against all keys)
+with an independent double-precision two-pass implementation; every output is
+also checked for NaN/Inf. The tolerance is `1e-5` absolute for the synthetic
+order-one outputs, or `--tolerance-scale x` times the largest reference
+magnitude for real tensors. A failed check marks the CSV row and makes the
+program exit non-zero. `ctest` runs the unit tests (kernels, masks, uneven and
+empty shards, grouped heads, stressed logits, every MPI variant with repeated
+calls). The other tests are run directly:
+
+```bash
+python3 tests/analyze_test.py build/attn_analyze      # or: ... mpirun -np 2 build/attn_analyze
+bash tests/hpc_scripts_test.sh
+bash tests/cli_test.sh build/attn_bench               # option parsing of the driver
+```
+
+On the cluster, `scripts/hpc/jobs/unit_tests.pbs` runs all of them on the staged
+source (one node, 16 cores, about two minutes).
+
+## Data
+
+Synthetic tensors are a hash of (seed, tensor, head, global position, column)
+mapped to [-1, 1); every rank generates its own shard. Real tensors come from
+`scripts/extract_qkv.py`, which records the queries and keys after the rotary
+position embedding, the values and the attention output of selected layers of
+Qwen2.5-0.5B on a Project Gutenberg text, as raw float32 files
+(`q.bin [N][H][d]`, `k.bin`, `v.bin [N][Hkv][d]`, `o_ref.bin [N][H][d]`) with a
+`meta.json`. Read them with `--data file:<dir> --oref <dir>/o_ref.bin`.
+The tensors are not part of the repository (1.7 GB). They can be regenerated
+with `scripts/hpc/jobs/extract_qkv.pbs`; `results/real_data/manifest.sha256`
+holds the SHA-256 digests of the model files, the text and the tensors that the
+report used.
+
+## Reproducing the experiments
+
+`scripts/hpc/cluster.sh` stages an immutable copy of the source on the cluster
+(named by a hash of the files), submits a job script from `scripts/hpc/jobs/`
+and copies the run directories back:
+
+```bash
+H=USER@vanda.nus.edu.sg
+TAG=$(scripts/hpc/cluster.sh push $H)                                    # prints TAG
+ATTN_JOB_ENV="ATTN_SUITE=strong,ATTN_RANKS=1:2:4:8:18:36:72" \
+scripts/hpc/cluster.sh submit $H $TAG experiment.pbs e2-strong \
+    -P PROJECT -l select=1:ncpus=72:mpiprocs=72:ompthreads=1 -l walltime=01:10:00
+scripts/hpc/cluster.sh fetch $H                                          # -> results/hpc/vanda/
+scripts/build_report.sh                                                  # figures, tables, numbers, PDF
+```
+
+`experiment.pbs` runs one or more suites (`ATTN_SUITE=a:b:c`): `serial`,
+`strong`, `weak`, `hybrid`, `comm`, `causal`, `memory`, `gqa`, `hardware`,
+`model`, `align`, `extras`, `tune`, `realdata`, `fatcheck`. `gpu_experiment.pbs`
+has the suites `ladder`, `ring` (two GPUs, in one node or one per node as
+allocated) and `ringcheck`; `unit_tests.pbs` runs the tests; `real_data.pbs` runs
+the real-tensor validation,
+the GQA comparison and the attention statistics; `extract_qkv.pbs` the
+extraction. Configurations that fit on one 72-core node are measured in a
+one-node job and only larger ones in a four-node job (`ATTN_MIN_CORES=73`,
+`ATTN_RANKS=72:144:288`, `ATTN_SERIAL_BASELINE=1`), because the cluster debits
+requested walltime times allocated cores. `docs/hpc-workflow.md` lists the
+pitfalls met on Vanda.
+
+Every CPU configuration warms up for at least one repetition and five seconds
+and is then measured three times; times are the rank maximum per repetition and
+the median over repetitions. GPU configurations warm up with one repetition.
+The memory, clock-ramp, hardware-counter and network runs have their own
+protocols (appendix of the report).
+
+## From result files to the report
+
+The report never contains a measured value typed by hand (descriptions of the
+hardware and of the inputs are typed). One chain produces it:
+
+1. `results/selected_runs.json` names the run directory used for each
+   experiment, and lists every other run directory with the reason it is not
+   used. No script picks "the newest run" by itself.
+2. `scripts/audit_results.py` checks the selected records and stops the build if
+   a rule is broken: runs ended normally on Vanda; validated repetitions fail
+   only in the declared stress study; every timed configuration has its three
+   repetitions with finite times and CPU runs their five-second warm-up; all CPU
+   jobs were built from byte-identical compute and driver sources and all GPU
+   jobs from identical kernel sources (file hashes of each source snapshot are
+   in `results/source_hashes/`); the compute and kernel sources of this tree are
+   those files; build flags and tile sizes are the stated ones; the unit tests
+   ran on the cluster on exactly the files of this tree; a program changed after
+   its records were computed is declared, and the condition under which those
+   records are unaffected is checked (`attn_bench`: two option checks, undoing
+   them restores the measured file and no recorded command is affected;
+   `attn_analyze`: two edge cases that do not occur in the stored records). It writes `results/audit.json` and the
+   provenance table of the appendix.
+3. `scripts/make_figures.py`, `scripts/make_tables.py` and
+   `scripts/make_numbers.py` read only the selected runs through
+   `scripts/results_io.py`, which records the files each figure, table and
+   group of numbers was computed from (`report/generated/provenance.json`).
+   The text quotes numbers as `\n{key}`; a key without data would be printed
+   as `??key??` and reported by the build.
+4. `scripts/build_report.sh` deletes everything generated earlier, runs all of
+   this and then LaTeX, and stops if a number has no data, a figure is missing or
+   a reference is undefined (`--draft` only lists such problems).
+
+Figures are drawn in the typeface of the report at their final size and are
+included without scaling.
+
+Python (3.9+, with numpy and matplotlib; torch and transformers for the
+extraction only) is used for data preparation and plotting, never for the
+attention computation.

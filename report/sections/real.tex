@@ -1,0 +1,159 @@
+\section{Real data: what exact attention shows in a language model}\label{sec:real}
+
+\subsection{Data and validation}
+The real tensors come from Qwen2.5-0.5B~\cite{qwen}, an open language model with 24
+layers, $H=14$ query heads that share $H_{kv}=2$ key/value heads ($G=7$), and head
+dimension $d=d_v=64$, which is also the head dimension of the synthetic runs (the
+grouped-head shape is used in \cref{sec:gqa}; the scaling runs have one head). The input
+is the first $N$ tokens of a long public-domain book (\emph{War and Peace}, Project
+Gutenberg~\#2600, 773{,}025 tokens in total) for $N=8{,}192$, $16{,}384$ and
+$32{,}768$, the largest context the model supports. A Python script runs the model
+once on a GPU and records, for layers 0, 11 and 23, the queries and keys \emph{after}
+the model's rotary position embedding, the values, and the attention output before
+the output projection. Python is used for this extraction and, elsewhere, for
+submitting jobs and drawing figures; all attention results below are recomputed by
+the C++ and CUDA code from these files.
+
+\inputifexists{report/generated/table_v7.tex}
+
+\Cref{tab:v7} compares three computations of the same quantity. My distributed
+single-precision result agrees with my double-precision reference to a few
+$10^{-5}$ of the output scale, and with PyTorch's own single-precision output to
+the same level; the GPU kernel behaves alike. The measure is the largest absolute
+difference divided by the largest output component of the tensor; it is not a
+relative error per element, and a head whose output is small could hide behind a
+large one. The outputs of the real layers are not of order one (their largest
+component ranges from \n{real.scale.min} to \n{real.scale.max} across the nine
+tensors), so the fixed tolerance $10^{-5}$ used for the synthetic outputs is
+replaced here by $10^{-3}$ times that largest component, stated with the results.
+All seven communication variants were also run on one layer with every row
+checked; they agree with the reference to the same level.
+
+One lesson from this step concerns validation itself. The first version of the
+extraction script checked its own dump with a short formula and reported errors of
+order one on some rows. The dump was correct: PyTorch's attention function,
+evaluated in double precision on the dumped tensors, reproduced the model's
+single-precision output on every row. The disagreement was in my check, where an
+\code{einsum} contraction and explicit sums gave different values on those rows. I
+did not trace the cause (precision, memory layout or backend), so I make no claim
+about the library; the script now uses explicit sums and reports the comparison
+with PyTorch's double-precision attention. An independent check is only evidence
+if it is itself checked.
+
+\subsection{Grouped-query attention moves seven times fewer bytes}\label{sec:gqa}
+With GQA only the two key/value heads travel, while the work is that of fourteen
+query heads. The matched control replicates each key/value head seven times, which
+leaves the mathematics unchanged (the outputs are bit-identical in the unit test)
+and multiplies the traffic by exactly seven.
+
+With 72 ranks on one node and synthetic tensors of the model's shape, the
+overlapped ring needs \n{gqa.T.overlap.N32768.P72}\,s with GQA and
+\n{gqa.Tmha.overlap.N32768.P72}\,s with the control at $N=32{,}768$
+(\n{gqa.gain.pct.overlap.N32768.P72}\% more), and a rank receives
+\n{gqa.mib.N32768.P72}\,MiB instead of \n{gqa.mib.mha.N32768.P72}\,MiB, a ratio of
+\n{gqa.bytes.ratio.N32768.P72}. The network is not what makes the difference here,
+however: the control M0, which exchanges nothing, is slower by almost the same
+amount (\n{gqa.gain.pct.local.N32768.P72}\%). The seven query heads of a group read
+the same packed key tile and the same values; with GQA the kernel therefore streams
+one seventh of the key/value data through the caches, which is the likely cause. The real tensors behave alike
+($N=32{,}768$, layer 11, causal mask, zigzag partition, 72 ranks):
+\n{gqa.real.T.overlap.P72}\,s against \n{gqa.real.Tmha.overlap.P72}\,s for the ring
+and \n{gqa.real.T.local.P72}\,s against \n{gqa.real.Tmha.local.P72}\,s for the
+control. The third prediction of \cref{sec:model} was therefore only half right:
+GQA does divide the bytes by $G$, and it also speeds up the local kernel, which
+the model does not contain.
+
+The network term of the prediction appears where the model says it should, when
+ranks own few rows and the exchange crosses nodes. With 288 ranks on four nodes and
+$N=8{,}192$ (28 rows per rank) the control is \n{gqa.gain.pct.overlap.N8192.P288}\%
+slower than GQA with the overlapped ring and \n{gqa.gain.pct.ring.N8192.P288}\% slower
+with the blocking ring, while M0 differs by \n{gqa.gain.pct.local.N8192.P288}\% as
+before; at $N=32{,}768$ (114 rows per rank) the three figures are
+\n{gqa.gain.pct.overlap.N32768.P288}\%, \n{gqa.gain.pct.ring.N32768.P288}\% and
+\n{gqa.gain.pct.local.N32768.P288}\%.
+
+\subsection{How far back does the model look?}
+Exact attention over the full context is the ground truth against which cheaper
+schemes can be judged. For 2{,}048 evenly spaced query positions of the
+$N=32{,}768$ context and every head, a double-precision two-pass program computes
+the exact probabilities and derives: the probability mass that falls on the most
+recent $w$ tokens; the relative error $\|O_w-O\|/\|O\|$ of the output when attention
+is restricted to that window and renormalised (the \emph{window} approximation);
+and the same error when the first four tokens of the sequence are kept as well (the
+\emph{sink+window} approximation used by streaming language models~\cite{streaming}).
+The statistics below use the queries in the second half of the sequence, whose
+context is longer than every window considered. What is compared is the output of
+one attention layer for fixed inputs. This is a replay of single layers, not a run
+of the model with windowed attention in every layer (where the change in one layer
+would alter the inputs of the next), so the errors below are not losses of model
+quality and say nothing about perplexity or task accuracy.
+
+\begin{figure}[t]
+\centering
+\figureifexists{real_window.pdf}
+\caption{Qwen2.5-0.5B, $N=32{,}768$, queries at positions $\ge 16{,}384$, all 14
+heads. Lines are medians over (query, head) pairs and bands the interquartile range
+of those pairs (a description of their distribution, not a confidence interval:
+neighbouring tokens and heads are not independent samples).
+(a) Probability mass on the most recent $w$ tokens. (b) Relative output error of the
+window approximation. (c) The same with the first four tokens kept.}
+\label{fig:realwindow}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\figureifexists{real_heads.pdf}
+\caption{The same data per head (medians). (a) Error of a 1{,}024-token window; the
+colour saturates at 1. (b) Probability on the first token. Heads 0--6 read
+key/value head 0 and heads 7--13 read key/value head 1.}
+\label{fig:realheads}
+\end{figure}
+
+\paragraph{Three layers, three behaviours.}
+\Cref{fig:realwindow,fig:realheads} show that the answer depends strongly on depth.
+\begin{itemize}
+\item \textbf{Layer 0 is local.} The median query places \n{real.mass_w.layer0.1024}\% of
+its probability on the last 1{,}024 tokens and \n{real.mass_w.layer0.4096}\% on the last
+4{,}096. A 1{,}024-token window changes the median output by
+\n{real.err_w.layer0.1024}\% and a 4{,}096-token window by
+\n{real.err_w.layer0.4096}\%. Heads differ, however: \n{real.heads.exact.layer0} of the
+fourteen are reproduced essentially exactly by a 1{,}024-token window and the others
+lose \n{real.heads.rest.min.layer0}--\n{real.heads.rest.max.layer0}\%.
+\item \textbf{Layer 11 has attention sinks.} \n{real.sinkheads.count} of the fourteen
+heads, precisely those that share key/value head 1 (heads
+\n{real.sinkheads.first}--\n{real.sinkheads.last}), put between \n{real.sinkheads.min}\%
+and \n{real.sinkheads.max}\% of their probability on the very first token of the
+sequence, 16{,}000 to 32{,}000 positions away; no other head exceeds
+\n{real.otherheads.max}\%. A window shorter than the distance to the start of the sequence removes that
+token; the remaining probabilities are then renormalised and the output changes
+completely (the median
+relative error is \n{real.err_w.layer11.1024} for $w=1{,}024$, and one (query, head)
+pair in ten has an error above \n{real.err_w.p90.layer11.1024}, because the exact
+output of a sink head is small and the renormalised window output is not). Keeping
+four sink tokens repairs this: the median error falls to
+\n{real.err_sw.layer11.1024}\% for $w=1{,}024$, \n{real.err_sw.layer11.4096}\% for
+$w=4{,}096$ and \n{real.err_sw.layer11.16384}\% for $w=16{,}384$.
+\item \textbf{Layer 23 is diffuse.} Its median entropy is \n{real.entropy.layer23}
+nats, the entropy of a uniform distribution over about \n{real.entropy.eff.layer23}
+tokens, and there is no sink. \n{real.beyond.layer23.1024}\% of the probability lies
+beyond the last 1{,}024 tokens and \n{real.beyond.layer23.4096}\% beyond the last
+4{,}096. A 1{,}024-token window changes the median output by
+\n{real.err_w.layer23.1024}\%, a 4{,}096-token window by \n{real.err_w.layer23.4096}\%,
+and even a 16{,}384-token window by \n{real.err_w.layer23.16384}\%.
+\end{itemize}
+
+\paragraph{Conclusions about the data.}
+For this model, this text and these three layers: (i) for the queries of the second
+half and windows of up to 16{,}384 tokens, a pure sliding window fails in the middle
+layer, whose sink heads depend on the start of the sequence; (ii) keeping four
+sink tokens removes that failure but still changes the output of the last layer by
+a third at a window of 1{,}024 tokens; and (iii) the sink heads are exactly the
+heads of one key/value group. The last point is an observation; it does not show
+that grouping causes sinks, and a high attention weight is not by itself evidence
+that a token matters for the result. These statements are descriptive. They rest
+on one model, one text and three layers, and the (query, head) pairs behind each
+median are correlated, so they show what the exact computation can measure, not a
+general law. For the purpose of this project they answer the motivating question:
+at a 32{,}768-token context a substantial share of the attention of a real model
+is long-range, so an exact method, and therefore the distributed scheme studied
+here, has something to compute that windows discard.

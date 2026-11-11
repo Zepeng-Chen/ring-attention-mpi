@@ -1,0 +1,34 @@
+AI tools were used heavily in this project, and this section states where.
+
+\begin{itemize}
+\item \textbf{My own work.} I chose the topic, wrote the first serial prototype
+of attention and online softmax (\code{src/attention.cpp}, \code{src/main.cpp}),
+decided the scope and priorities of the study, arranged the cluster accounts and
+access, and reviewed the results and this report.
+\item \textbf{Claude (Anthropic), in the chat interface and as the Claude Code
+agent.} Early on it was used for brainstorming the topic, planning experiments and
+reviewing my prototype. In the final phase the Claude Code agent wrote most of the
+production code under my direction: the tuned serial kernel, the no-communication
+control, the CUDA kernels and the MPI+CUDA driver, the microbenchmark and analysis
+programs, the extraction script, the cluster job scripts and the plotting scripts.
+It also ran the experiments on Vanda through my account (job scripts, submission,
+monitoring and retrieval of results), diagnosed the two measurement problems of
+\cref{sec:pitfalls} from the data, produced the figures and tables, and drafted the
+text of this report.
+\item \textbf{Codex (OpenAI).} It reviewed the project plan, wrote the first version
+of the flat-tensor compute core, the MPI variants, the benchmark driver and the
+tests, and performed a code review that found a numerical error in an early version
+of the vectorised exponential (\cref{sec:validation}). Near the end it reviewed the
+code, the retrieved data and a draft of this report; that review found two edge-case
+errors in the analysis program and several claims that were stronger than the
+evidence, and Claude Code then made the corresponding changes.
+\end{itemize}
+
+\noindent Every measured value in the report comes from a job that actually ran on
+the cluster (\cref{tab:provenance}) and is computed from the result files by a
+script rather than typed. The correctness of the AI-written code does not rest on
+trust: each implementation is compared with a double-precision reference inside
+every timed scaling run (the runs that measure memory, hardware counters or the
+network carry no comparison), the unit tests ran on the cluster on the submitted
+source, and the real-data path is additionally compared with PyTorch's own
+output.

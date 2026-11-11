@@ -1,0 +1,28 @@
+\begin{table}[!ht]
+\centering\small
+\begin{tabularx}{\textwidth}{@{}p{0.2\textwidth} Y Y@{}}
+\toprule
+Question & Expectation before measuring & Measured (section)\\
+\midrule
+How fast is one core? & A blocked kernel limited by multiply-add throughput; time $\propto N^2$. &
+Exponent \n{serial.slope.tuned}; \n{serial.gflops.tuned}\,GFLOP/s, \n{serial.speedup.fair} times the scalar blocked kernel and \n{serial.peakpct}\% of the core's peak. Aligning the arrays alone is worth a factor of \n{align.speedup} (\cref{sec:serial}).\\
+What limits one node? & Communication inside a node is cheap, so efficiency should stay near one. &
+For $N=\n{strong.Nbig.h}$ efficiency is \n{strong.Elow.min}--\n{strong.Elow.max} up to 8 cores and \n{strong.E.big.72} at 72, and a control that exchanges nothing loses the same: the clock falls from \n{hw.freq.1} to \n{hw.freq.72}\,GHz as the node fills (\cref{sec:hardware}).\\
+When does communication matter? & For a given configuration, through the rows per rank $c=N/P$ (\cref{eq:model}). &
+Single-thread ranks on one node follow $1/(1+c^*/c)$ with a fitted $c^*=\n{model.cstar.fit}$ rows, \n{model.cstar.ratio} times the constant predicted from a microbenchmark; runs not used for the fit lie within \n{model.heldout.one.maxdev}. Threads, the network and the fetch order shift the cost at equal $c$ (\cref{sec:collapse}).\\
+Does nonblocking or one-sided communication overlap with computation? & Posting a transfer early hides it behind the computation. &
+In a two-rank test a transfer completed while the peer computed inside a node, but between nodes (TCP) only when the peer re-entered MPI; the application runs agree: \code{Rget} is \n{strong.slow.rma_get.big.288}--\n{strong.slow.rma_get.small.288} times slower than the control at 288 ranks (\cref{sec:progress}).\\
+Strong scaling to \MaxCores{} cores & Efficiency limited by the node ceiling for large $N$, by $c$ for small $N$. &
+Speedup \n{strong.S.big.288} (efficiency \n{strong.E.big.288}) for $N=\n{strong.Nbig.h}$; \n{strong.E.small.288} for $N=\n{strong.Nsmall.h}$ (\cref{tab:strong}).\\
+Causal mask & A contiguous partition wastes the saving; zigzag balances the work exactly. &
+Ring, contiguous: \n{causal.ratio.overlap.contiguous.72} of the unmasked time; zigzag: \n{causal.ratio.overlap.zigzag.72}. The one-sided pull halves the traffic only for the unbalanced partition, which makes that partition the faster one for the pull across nodes (\cref{sec:causal}).\\
+Threads and GPUs & A faster local kernel makes communication visible at larger $c$. &
+Threads: at equal rows per rank, ranks of 18 threads lose \n{fat.loss.pct.c2304}\% where thin ranks lose \n{fat.thin.loss.pct.c2304}\%; on 288 cores \n{hybrid.best.ranks.288} ranks $\times$ \n{hybrid.best.threads.288} threads is \n{hybrid.gain.pct.288}\% faster than 288 thin ranks. GPUs: one A40 equals about \n{gpu.equiv.cores} loaded cores; two reach a speedup of \n{gpu2.two.S.host.overlap.N131072} at $N=131{,}072$ across two nodes and \n{gpu2.two.S.host.overlap.N4096} at $N=4{,}096$, where the exchange dominates (\cref{sec:collapse,sec:hybrid,sec:gpu,sec:gpuring}).\\
+Real model tensors & Same code, same accuracy; GQA moves $G=7$ times fewer bytes. &
+Agreement with PyTorch to $\n{real.err.torch.max}$ of the output scale. Bytes ratio \n{gqa.bytes.ratio.N32768.P72}, but GQA also speeds up the kernel itself (\n{gqa.gain.pct.local.N32768.P72}\% without any communication). In a replay of single layers, a window of 1{,}024 tokens changes the attention output of the last layer by \n{real.err_w.layer23.1024}\% (\cref{sec:real}).\\
+\bottomrule
+\end{tabularx}
+\caption{Questions, expectations and outcomes. Every number is measured on Vanda;
+the sections state the conditions under which each one holds.}
+\label{tab:findings}
+\end{table}

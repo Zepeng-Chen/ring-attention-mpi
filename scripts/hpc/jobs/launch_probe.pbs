@@ -1,0 +1,22 @@
+#!/bin/bash
+# Which mpirun configuration starts processes on every allocated node, and how
+# are ranks bound? Diagnostic only.
+source "$ATTN_SRC/scripts/hpc/jobs/common.sh"
+set +e
+echo "hostname=$(hostname) fqdn=$(hostname -f) nodes=$NODES slots=$SLOTS"; sort -u "$PBS_NODEFILE"
+echo "prted=$(command -v prted) mpirun=$(command -v mpirun)"
+P="$(dirname "$(dirname "$(command -v prted)")")"
+try() { echo "### $*"; timeout 120 "$@" < /dev/null 2>&1 | grep -v "^$" | sort | uniq -c | head -12; echo "exit=${PIPESTATUS[0]}"; }
+try mpirun -np 2 hostname
+try mpirun -np "$SLOTS" hostname
+try mpirun --prefix "$P" -np "$SLOTS" hostname
+try mpirun --prefix "$P" -np "$NODES" --map-by ppr:1:node hostname
+try mpirun --prefix "$P" -np 4 --map-by slot:PE=2 --bind-to core --report-bindings "${MPI_ENV[@]}" hostname
+try mpirun --prefix "$P" -np "$SLOTS" --map-by slot:PE=1 --bind-to core --report-bindings "${MPI_ENV[@]}" hostname
+for other in $(sort -u "$PBS_NODEFILE"); do echo "ssh $other: $(timeout 10 ssh -n -o BatchMode=yes -o ConnectTimeout=5 "$other" 'hostname; command -v prted || echo no-prted-in-remote-path' 2>&1 | tr '\n' ' ')"; done
+build gcc-native
+if detect_launcher; then
+    run "$SLOTS" 1 -- "$BUILD/attn_bench" --impl overlap --N 4096 --validate 64 --warmup 1 --reps 2 --cluster "$ATTN_CLUSTER" --purpose probe --csv "$ATTN_RUN/probe.csv" --rank-csv "$ATTN_RUN/probe-ranks"
+    echo "bench exit=$?"; cut -d, -f3-5,7,22,38-41 probe.csv
+    cut -d, -f2,3 probe-ranks.rank*.csv | sort -u | head -20
+fi

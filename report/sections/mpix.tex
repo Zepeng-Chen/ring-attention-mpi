@@ -1,0 +1,204 @@
+\section{MPI+X}\label{sec:mpix}
+
+\subsection{MPI+OpenMP: ranks versus threads}\label{sec:hybrid}
+For a fixed number of cores, fewer ranks with more threads each means fewer and
+larger shards: the ring has fewer steps and each step computes more, so communication
+weighs less; in exchange, the threads of a rank must share its work evenly and a wide
+rank spans more of the machine's memory hierarchy. \Cref{fig:hybrid} shows the
+measured balance for $N=131{,}072$.
+
+\begin{figure}[t]
+\centering
+\figureifexists{hybrid.pdf}
+\caption{Run time for every split of (a) 72 cores of one node and (b) 288 cores of
+four nodes into ranks $\times$ threads, $N=131{,}072$. Grey: the no-communication
+control at the same split; bands show the range of three repetitions. Both axes
+are logarithmic; the time axes cover only a few per cent, so small differences
+look large.}
+\label{fig:hybrid}
+\end{figure}
+
+Inside one node the split hardly matters: the seven splits of 72 cores lie within
+\n{hybrid.range.pct.72}\% of each other, from \n{hybrid.best.time.72}\,s
+(\n{hybrid.best.ranks.72} ranks $\times$ \n{hybrid.best.threads.72} thread) to
+\n{hybrid.worst.time.72}\,s (one rank of 72 threads). Communication inside a node is
+too cheap for fewer ranks to pay off, and the threaded kernel stays within that
+margin of separate processes even as a single rank spanning both sockets: the
+query tiles are independent, so threads share no state.
+On four nodes fewer and larger ranks help a little. With 288 single-thread ranks
+the run takes \n{hybrid.thin.time.288}\,s; the best split measured,
+\n{hybrid.best.ranks.288} ranks of \n{hybrid.best.threads.288} threads, takes
+\n{hybrid.best.time.288}\,s (\n{hybrid.gain.pct.288}\% less), a speedup of
+\n{hybrid.speedup.288} over the serial kernel and the best result of this report
+for $N=\n{hybrid.N.h}$. The direction agrees with \cref{sec:collapse}: with 32 ranks
+a shard has \n{hybrid.c.best.288} rows instead of \n{strong.c.big.288}, and
+$E_\text{comm}$ rises from \n{hybrid.ecomm.288.T1} to \n{hybrid.ecomm.288.T9}. The
+gain is small because communication was a small part of the loss to begin with;
+the clock, which no split changes, remains. It is also not monotonic: wider ranks
+give it back (\n{hybrid.time.288.T36}\,s with 36 threads per rank,
+\n{hybrid.time.288.T72}\,s with 72), and the control itself varies by a few per cent
+between splits, since threads per rank also change how a rank's work meets the
+sockets and caches. With repetitions that differ by up to
+\n{hybrid.repspread.pct.288}\% for some splits, the ordering of neighbouring splits
+is not resolved; what the data support is that a rank per quarter or half socket
+is at least as good as 288 thin ranks on this machine for this problem.
+
+\subsection{One GPU: a ladder of three kernels}\label{sec:gpu}
+A GPU computes attention under the same block-at-a-time interface as the CPU core:
+queries and the state $(m,\ell,a)$ stay on the device and one launch folds one
+key/value block into the state. I wrote three kernels, each fixing the main weakness
+of the one before; all are validated against the double-precision reference
+(\cref{sec:validation}).
+
+\begin{itemize}
+\item \textbf{K0, naive.} One thread per (query, head) runs the serial two-pass row
+loop. Every operand is read from global memory, the dot product is computed twice,
+and each key updates the 64-element accumulator in global memory.
+\item \textbf{K1, tiled.} Blocks of $32\times32$ threads compute $32\times32$ tiles
+of scores from query and key tiles held in \term{shared memory} (the fast on-chip
+memory of a thread block). The key tile is stored transposed, so that in the score
+loop the 32 threads of a \term{warp} (the group of threads that executes together)
+read 32 consecutive words, which lie in different memory banks and do not queue.
+(Filling the transposed tile is not arranged that way: the threads of a warp then
+write words that are 32 apart. I did not measure what that costs.) Scores are
+written to global memory; a second kernel turns each row into weights; a third
+multiplies weights and values tile by tile. The scores are thus \emph{materialised}:
+one number per local query and key of the block, held in a scratch buffer of at
+most 2\,GiB and processed in chunks of keys when a block does not fit.
+\item \textbf{K2, fused.} One block owns 32 query rows of one head for the whole
+key/value block. Each warp is one query row: its maximum and its sum are reductions
+inside the warp, weights stay in shared memory, and each thread keeps two components
+of the accumulator in registers until the block is finished. Nothing but the final
+state is written to global memory. With a causal mask a tile of keys that lies
+entirely in the future of the 32 queries is skipped before it is loaded.
+\end{itemize}
+
+\begin{figure}[t]
+\centering
+\figureifexists{gpu_ladder.pdf}
+\caption{One NVIDIA A40, $d=d_v=64$, one head, no mask. (a) Run time and (b) useful
+throughput of the three kernels; the tuned kernel on one CPU core is shown for scale.
+``Useful'' counts $2(d+d_v)$ operations per allowed pair for every kernel, although
+K0 computes each dot product twice. A GPU run warms up with one untimed repetition.}
+\label{fig:gpuladder}
+\end{figure}
+
+\Cref{fig:gpuladder} shows the ladder. K0 reaches \n{gpu.k0.min} to
+\n{gpu.k0.max}\,GFLOP/s, about the speed of one tuned CPU core: a direct port wastes
+the device, because every operand comes from global memory and no thread shares
+work with its neighbours. K1 reaches \n{gpu.k1.min} to \n{gpu.k1.max}\,TFLOP/s,
+\n{gpu.k1.over.k0} times K0 at $N=\n{gpu.N.common.h}$: tiling through shared memory is
+the decisive step. K2 is a further \n{gpu.k2.over.k1.small} to
+\n{gpu.k2.over.k1.big} times faster, the more so the longer the sequence, and
+reaches \n{gpu.k2.max}\,TFLOP/s. It computes $N=\n{gpu.k2.Nmax.h}$, that is
+$\n{gpu.k2.pairs}\times10^{10}$ pairs, in \n{gpu.k2.Tmax}\,s without ever storing a
+score outside the chip. These are the rates of this single-precision
+implementation under this way of counting; I did not profile the kernels
+(occupancy, registers, memory throughput), so they say what was reached, not what
+limits it or how far the device could go.
+
+\paragraph{The GPU against the CPU.} At $N=131{,}072$ one A40 with K2 needs
+\n{gpu.k2.T131k}\,s. One tuned CPU core needs \n{strong.TS.big}\,s, a factor of
+\n{gpu.vs.core.131072}; the 72 cores of one node need \n{gpu.node.T}\,s with the
+overlapped ring. For this shape and precision, and for these two hand-written
+implementations, one GPU therefore does the work of about \n{gpu.equiv.cores} cores
+of a fully loaded node. The comparison is only meaningful because the CPU baseline
+was tuned first: against the basic kernel the same GPU would have looked
+\n{serial.speedup.tuned} times better.
+
+\paragraph{Masks and real tensors.} With a causal mask K2 needs
+\n{gpu.causal.k2.N65536} of its unmasked time at $N=65{,}536$, because key tiles
+that lie in the future of a block of queries are skipped before they are loaded; K1
+needs \n{gpu.causal.k1.N65536}, because it computes every score and masks
+afterwards. On the real tensors of \cref{sec:real} ($N=32{,}768$, 14 query heads,
+causal) K2 takes \n{gpu.real.T}\,s per layer and agrees with the double-precision
+reference (\cref{tab:v7}).
+
+\subsection{MPI+CUDA: the ring between GPUs}\label{sec:gpuring}
+With one rank per GPU the ring of \cref{fig:ring} runs unchanged: a rank launches
+the kernel on the block it holds and exchanges the next block meanwhile. The block
+is either exchanged between host buffers and then uploaded (\term{host-staged};
+nothing is copied back from the device, because keys and values are read-only) or
+handed to a \term{CUDA-aware} MPI library as a device pointer. Each mode runs with
+a blocking schedule (wait for the kernel, then exchange) and with an overlapped
+one (exchange while the kernel runs).
+
+\paragraph{Correctness.} The ring was checked at three levels. First, with two
+ranks sharing one GPU, the allocation that was available first:
+\n{gpucheck.configs} configurations covering both exchange modes and
+schedules, the causal, window and sink+window masks, both partitions, the three
+kernels and grouped heads pass on 64 sampled rows, with a largest error of
+$\n{gpucheck.maxerr}$. That run exercises the code path; its timings mean nothing,
+since both ranks compute on the same device. Second and third, with one rank per
+GPU: two A40 in one node, and one A40 in each of two nodes. Each of these two jobs
+contributes \n{gpu2.one.reps} repetitions, every one validated on
+\n{gpu2.one.valrows} sampled rows, with largest errors of $\n{gpu2.one.maxerr}$ and
+$\n{gpu2.two.maxerr}$. In the two-node job the script recorded what each node
+showed: each rank saw exactly the one device that the scheduler had allocated.
+
+\begin{figure}[t]
+\centering
+\figureifexists{gpu_ring.pdf}
+\caption{Two A40 GPUs, fused kernel K2, $d=d_v=64$, one head, no mask: efficiency
+$T_1/(2T_2)$ against rows per GPU, where $T_1$ is the time of one GPU measured in
+the same job. Markers: median of three repetitions; bars: their range.}
+\label{fig:gpuring}
+\end{figure}
+
+\paragraph{Two GPUs in one node.} A timed repetition contains the reset of the
+state, the upload of the first block, all exchanges and the download of the
+result. With the overlapped schedule two GPUs reach a speedup of
+\n{gpu2.one.S.host.overlap.N131072} at $N=131{,}072$ (\n{gpu2.one.T1.N131072}\,s on
+one GPU, \n{gpu2.one.T.host.overlap.N131072}\,s on two) and efficiencies between
+\n{gpu2.one.E.overlap.min} and \n{gpu2.one.E.overlap.max} for $N\ge16{,}384$
+(\cref{fig:gpuring}a). Most of what is missing is not communication. The time
+inside the kernels alone gives nearly the same ratio
+(\n{gpu2.one.Ek.host.overlap.N16384} at $N=16{,}384$ and
+\n{gpu2.one.Ek.host.overlap.N131072} at $N=131{,}072$): the throughput of K2 grows
+with the size of the block it is given (\cref{fig:gpuladder}b), and each of the two
+GPUs works on blocks of half the size. This is the GPU's counterpart of the
+granularity term in $E_0$.
+
+The exchange becomes visible where \cref{sec:model} says it should, at few rows
+per GPU and without overlap. Carrying the fitted CPU constant over to the GPU's
+compute rate (\n{gpu.vs.loadedcore} times a loaded core) gives
+$c^*\approx\n{gpu.cstar.pred}$ rows, hence an efficiency of \n{gpu.pred.E.c2048} at
+2{,}048 rows per GPU if nothing overlapped. The blocking schedules measure
+\n{gpu2.one.E.aware.blocking.N4096} (CUDA-aware) and
+\n{gpu2.one.E.host.blocking.N4096} (host-staged) there, and the overlapped
+host-staged schedule keeps \n{gpu2.one.E.host.overlap.N4096}. So the order of
+magnitude of the extrapolation is right for a schedule that does not overlap, and
+overlap removes most of the loss. It can do so here for a reason that does not
+apply to CPU ranks: the kernel runs on the device and leaves the host thread free
+to drive MPI. The CUDA-aware overlapped schedule is less regular at the two
+smallest sizes (\n{gpu2.one.E.aware.overlap.N4096} and
+\n{gpu2.one.E.aware.overlap.N8192}); these runs last a few milliseconds after a
+warm-up of one repetition, and I do not read more into them.
+
+\paragraph{One GPU in each of two nodes.} For large blocks nothing changes: the
+speedup is \n{gpu2.two.S.host.overlap.N131072} at $N=131{,}072$, and the overlapped
+schedule reaches \n{gpu2.two.E.overlap.min} to \n{gpu2.two.E.overlap.max} for
+$N\ge16{,}384$ (\cref{fig:gpuring}b). For small blocks the exchange between the
+nodes takes over. At $N=4{,}096$ one exchange takes
+\n{gpu2.two.mpi.ms.host.overlap.N4096}\,ms where the kernel needs
+\n{gpu2.two.kernel.ms.host.overlap.N4096}\,ms, and two GPUs are
+\n{gpu2.two.slow.min.N4096} to \n{gpu2.two.slow.max.N4096} times \emph{slower} than
+one. The blocking host-staged schedule pays about the same
+\n{gpu2.two.mpi.ms.host.blocking.N16384}\,ms per exchange from $N=4{,}096$ to
+$N=32{,}768$, which looks like a fixed delay of the transport and not a cost per
+byte; I did not find its cause. These short configurations are also the least
+repeatable ones of the report (bars in the figure). Two caveats belong here.
+``CUDA-aware'' means that the library accepts device pointers; which path the
+bytes take between the nodes was not determined. And the job log shows that the
+library's components for collective operations failed to connect between the two
+nodes and fell back to the default ones; the point-to-point path that the ring
+uses worked, and every repetition validated.
+
+\paragraph{Causal mask on two GPUs.} With two ranks a contiguous partition gives
+the second GPU three quarters of the pairs and the zigzag partition gives each
+one half. At $N=65{,}536$ the contiguous run takes
+\n{gpu2.one.causal.T.contiguous}\,s and the zigzag run
+\n{gpu2.one.causal.T.zigzag}\,s in one node (\n{gpu2.two.causal.T.contiguous} and
+\n{gpu2.two.causal.T.zigzag}\,s across two): \n{gpu2.one.causal.ratio.contiguous} and
+\n{gpu2.one.causal.ratio.zigzag} of the unmasked time, close to the
+$\tfrac34$ and $\tfrac12$ that the pair counts give.

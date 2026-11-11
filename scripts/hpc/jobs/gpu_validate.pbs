@@ -1,0 +1,73 @@
+#!/bin/bash
+# GPU bring-up: toolchain record, build, correctness of K0/K1/K2 against the
+# fp64 reference on boundary/mask/GQA cases, then a first kernel-ladder pilot.
+export ATTN_ENV=vanda_gpu_env.sh
+source "$ATTN_SRC/scripts/hpc/jobs/common.sh"
+{
+    nvidia-smi --query-gpu=index,name,memory.total,driver_version --format=csv
+    which nvcc mpicxx mpirun cmake g++; nvcc --version | tail -2; mpicxx --version | head -1; mpirun --version | head -1
+    ompi_info 2>/dev/null | grep -iE "cuda|MCA pml|MCA btl|MCA osc" | cut -c1-110 | head -20
+    which ncu nsys 2>&1 | head -2
+} > gpu-environment.txt 2>&1
+GPUS=$(nvidia-smi -L | wc -l)
+
+BUILD="$ATTN_BUILD_ROOT/$ATTN_TAG-gpu"
+if [[ ! -x "$BUILD/attn_gpu_bench" ]]; then
+    cmake -S "$ATTN_SRC" -B "$BUILD" -DCMAKE_BUILD_TYPE=Release -DATTN_ENABLE_CUDA=ON -DATTN_ENABLE_OPENMP=OFF \
+        -DCMAKE_CXX_COMPILER=g++ -DCMAKE_CUDA_FLAGS="-O3" > build-gpu.log 2>&1 || { tail -40 build-gpu.log; exit 1; }
+    cmake --build "$BUILD" --parallel 8 >> build-gpu.log 2>&1 || { tail -60 build-gpu.log; exit 1; }
+fi
+G="$BUILD/attn_gpu_bench"
+gpu() { local ranks="$1"; shift; mpirun -np "$ranks" --bind-to none -x LD_LIBRARY_PATH -x PATH "$G" --cluster "$ATTN_CLUSTER" "$@" < /dev/null; }
+
+echo "== correctness: every kernel, masks, GQA, uneven sizes (all rows vs fp64) =="
+fail=0
+for kernel in k0 k1 k2; do
+  while read -r n nq d dv h hkv mask part alpha; do
+    for ranks in 1 $([[ "$GPUS" -ge 2 ]] && echo 2); do
+      for comm in host $([[ "$ranks" == 2 ]] && echo aware); do
+        gpu "$ranks" --kernel "$kernel" --comm "$comm" --N "$n" --Nq "$nq" --d "$d" --dv "$dv" --H "$h" --Hkv "$hkv" \
+            --mask "$mask" --window 5 --sink 4 --partition "$part" --alpha "$alpha" --validate "$nq" --warmup 0 --reps 2 \
+            --k1-budget-mb 1 --purpose validation --csv "$ATTN_RUN/gpu-validation.csv" || { echo "FAILED $kernel $comm P=$ranks N=$n mask=$mask"; fail=1; }
+      done
+    done
+  done <<CASES
+37 29 13 7 6 2 none contiguous 1
+37 37 13 7 6 2 causal contiguous 50
+37 37 13 7 14 2 causal zigzag 1
+19 23 8 11 2 1 window contiguous 1
+19 23 8 11 2 1 sink-window zigzag 1
+1000 17 9 5 1 1 none contiguous 1
+257 257 64 64 2 1 causal contiguous 1
+1030 1030 64 64 1 1 none zigzag 50
+CASES
+done
+python3 - "$ATTN_RUN/gpu-validation.csv" <<'PY'
+import csv, sys
+rows = list(csv.DictReader(open(sys.argv[1])))
+bad = [r for r in rows if r['validation'] != 'passed' or int(r['nan_inf'])]
+print(f"validation rows={len(rows)} failed={len(bad)} worst_abs={max(float(r['max_abs_err']) for r in rows):.3e}")
+for r in bad[:10]: print('  FAIL', r['kernel'], r['comm'], r['ranks'], r['N'], r['mask'], r['max_abs_err'])
+PY
+[[ "$fail" == 0 ]] || { echo "GPU validation failed; stopping before timing"; exit 2; }
+
+echo "== kernel ladder pilot (single GPU) =="
+for n in 4096 8192 16384 32768; do
+  for kernel in k0 k1 k2; do
+    [[ "$kernel" == k0 && "$n" -gt 16384 ]] && continue
+    gpu 1 --kernel "$kernel" --N "$n" --validate 32 --warmup 1 --reps 3 --purpose pilot --csv "$ATTN_RUN/gpu-ladder-pilot.csv"
+  done
+done
+for n in 65536 131072; do
+  gpu 1 --kernel k2 --N "$n" --validate 16 --warmup 1 --reps 3 --purpose pilot --csv "$ATTN_RUN/gpu-ladder-pilot.csv"
+done
+if [[ "$GPUS" -ge 2 ]]; then
+  echo "== two-GPU ring pilot: host-staged vs CUDA-aware, overlap vs blocking =="
+  for n in 16384 65536; do
+    for comm in host aware; do for schedule in overlap blocking; do
+      gpu 2 --kernel k2 --comm "$comm" --schedule "$schedule" --N "$n" --validate 16 --warmup 1 --reps 3 \
+          --purpose pilot --csv "$ATTN_RUN/gpu-ring-pilot.csv" --rank-csv "$ATTN_RUN/gpu-ring-$comm-$schedule-$n"
+    done; done
+  done
+fi
+echo "done"

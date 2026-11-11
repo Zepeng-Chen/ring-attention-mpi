@@ -1,0 +1,409 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage[margin=22mm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{newtxtext,newtxmath}
+\usepackage{amsmath,booktabs,graphicx,array,enumitem,xcolor,microtype,subcaption,multirow,tabularx}
+\usepackage[section,above,below]{placeins}
+\usepackage[font=small,labelfont=bf]{caption}
+\usepackage[hidelinks]{hyperref}
+\usepackage[capitalise,noabbrev]{cleveref}
+\definecolor{ink}{HTML}{17324D}
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\setlist{itemsep=1pt,topsep=3pt,leftmargin=1.4em}
+\graphicspath{{report/figures/}}
+\newcommand{\term}[1]{\textbf{#1}}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\R}{\mathbb{R}}
+\input{report/generated/numbers.tex}
+\input{report/generated/validation_numbers.tex}
+\input{report/sections/pending.tex}
+% A figure that has not been generated yet (its job has not run) shows a box instead of stopping the build.
+\newcommand{\figureifexists}[1]{\IfFileExists{report/figures/#1}{\includegraphics{#1}}{\fbox{\parbox{0.6\textwidth}{\centering figure not generated yet: \texttt{\detokenize{#1}}}}}}
+\newcommand{\inputifexists}[1]{\IfFileExists{#1}{\input{#1}}{\par\textbf{[not generated yet: \texttt{\detokenize{#1}}]}\par}}
+
+\title{\textcolor{ink}{\bfseries Exact Attention Across Ranks:\\ When Does Communication Matter?}\\[4pt]
+\large Sequence-sharded softmax attention with MPI, OpenMP and CUDA}
+\author{Chen Zepeng (A0156784N)\\ DSA5208 Project 3}
+\date{November 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent Softmax attention couples every query position of a sequence with every
+earlier key position, so its cost grows with the square of the sequence length $N$.
+This project computes that operation \emph{exactly} when the sequence is too long
+for one process: queries, keys and values are split by position across MPI ranks,
+and the keys and values travel between ranks while each rank keeps a running,
+numerically stable summary of the softmax. I implemented the serial algorithm, six
+MPI communication strategies around one shared compute core, an OpenMP hybrid and
+three generations of CUDA kernels, without any linear-algebra library, and
+validated all of them against an independent double-precision reference.
+On the NUS Vanda cluster the tuned serial kernel reaches \n{serial.gflops.tuned}\,GFLOP/s
+on one core, \n{serial.speedup.fair} times a straightforward blocked kernel;
+aligning the arrays to cache lines alone is worth a factor of \n{align.speedup}. For
+$N=131{,}072$ the ring reaches a speedup of \n{strong.S.big.288} on 288 cores
+(efficiency \n{strong.E.big.288}). A control that runs the same computation without
+exchanging anything already stops at \n{strong.E0.big.288}: a fully loaded node runs at
+a lower clock, and smaller shards cost slightly more. The ring runs at
+\n{strong.Ecomm.big.288} of the control's speed. For single-thread ranks inside one
+node this ratio follows $1/(1+c^*/c)$ in the rows per rank $c$, with a fitted
+$c^*\approx\n{model.cstar.fit}$ rows, \n{model.cstar.ratio} times what a two-rank
+microbenchmark predicts; threads per rank, the network and the order of one-sided
+fetches all move it. Between nodes, where this cluster's MPI uses TCP, a transfer to a
+rank that was computing completed in a microbenchmark only when that rank next called
+MPI, and the one-sided variant is up to \n{strong.slow.rma_get.small.288} times slower
+than the control. With a causal mask a balanced partition makes the ring
+\n{causal.zigzag.gain.overlap.288} times faster than a contiguous one, which gains
+nothing from the mask. One A40 GPU with a fused kernel does the work of about
+\n{gpu.equiv.cores} loaded cores on this problem; two GPUs reach a speedup of
+\n{gpu2.one.S.host.overlap.N131072} at $N=131{,}072$, in one node and across two, but
+across nodes one exchange takes longer than the whole computation at $N=4{,}096$ and
+two GPUs are then slower than one. On the attention tensors of a real language model
+the code reproduces PyTorch's output to $\n{real.err.torch.max}$ of its scale, and in
+the three layers examined a window of 1{,}024 tokens changes the attention output by
+\n{real.err_w.layer0.1024}\% to more than 100\%.
+\end{abstract}
+
+\section{Introduction}\label{sec:intro}
+
+\paragraph{The problem.}
+Attention is the operation that lets a language model relate one token to all the
+tokens before it. For a sequence of $N$ tokens it evaluates $N^2$ query--key
+interactions per attention head. A model with a context of $32{,}768$ tokens
+therefore evaluates about $10^9$ interactions in every head of every layer, and the
+cost quadruples each time the context doubles. Practical systems respond either by
+\emph{approximating} attention (looking only at a recent window of tokens, for
+example) or by \emph{distributing} the exact computation. This project studies the
+second route and uses it to measure what the first one gives up.
+
+\paragraph{Why it is not embarrassingly parallel.}
+The natural way to distribute a long sequence is by position: rank $r$ of $P$ ranks
+stores the queries, keys and values of its own $c=N/P$ consecutive tokens
+(\cref{fig:ring}a). A rank can compute the outputs of its own queries, but each of
+those queries needs the keys and values held by \emph{every} rank. The whole
+key/value set must therefore visit every rank, and the design question is how:
+copy everything everywhere, pass shards around a ring, or let each rank pull what
+it needs. The situation is the distributed kernel-matrix problem of Lecture~8 (the
+data that defines the kernel is spread over ranks), with the softmax normalisation
+as an extra difficulty, because a query's output cannot be finalised until it has
+seen all keys.
+
+\paragraph{Questions and approach.}
+The report is organised around four questions.
+\begin{enumerate}
+\item \textbf{How fast can one core go, and why?} (\cref{sec:serial}) A slow serial
+code scales deceptively well, so the baseline is tuned first and placed against the
+hardware limit.
+\item \textbf{When does communication matter?} (\cref{sec:model,sec:mpi}) A model
+in which the rows per rank $c$ are the controlling variable predicts when moving keys
+and values costs more than using them; strong and weak scaling runs to
+\MaxCores{} cores show where it holds and where it does not.
+\item \textbf{What changes when the local computation gets faster?}
+(\cref{sec:hybrid,sec:gpu}) OpenMP threads and GPUs raise the compute rate by one
+to two orders of magnitude and move the point at which communication shows.
+\item \textbf{What does exact attention buy on real data?} (\cref{sec:real}) The
+same code runs on the attention tensors of a real language model, reproduces the
+model's own output, and measures how much window approximations change the output
+of single layers.
+\end{enumerate}
+
+\begin{figure}[t]
+\centering
+\figureifexists{concept_ring.pdf}
+\caption{The setting. (a) Queries $Q$, keys $K$ and values $V$ are split by token
+position; rank $r$ owns shard $r$. (b) The ring schedule for four ranks: at every
+step each rank holds one key/value shard, folds it into the running softmax state of
+its own queries and passes it to its right-hand neighbour. Shard colour (light to
+dark) follows token position.}
+\label{fig:ring}
+\end{figure}
+
+\paragraph{Summary of findings.}
+\Cref{tab:findings} lists each claim with the prediction made before measuring and
+the measured outcome. The ring decomposition itself follows the published Ring
+Attention idea~\cite{ring}; online softmax, tiling and fused kernels are published techniques as well
+(\cref{sec:background}). What this report adds is a hand-written implementation of
+all of them around one compute core, a controlled comparison of communication
+designs with a no-communication control, two measurement artefacts found and
+removed, and a simple model that is confronted with the measurements, including
+where it fails. The scope is the forward pass of one attention layer with as many
+queries as keys; training (the backward pass) and token-by-token decoding, where
+there are few queries, are not covered.
+
+\inputifexists{report/sections/findings.tex}
+
+\input{report/sections/background.tex}
+
+\section{The algorithm}\label{sec:algorithm}
+
+\subsection{Attention is a kernel smoother}
+Let $q_i\in\R^d$ be the query vector of token $i$, and $k_j\in\R^d$, $v_j\in\R^{d_v}$
+the key and value vectors of token $j$. Attention computes, for every query,
+\begin{equation}
+ s_{ij}=\frac{q_i^\top k_j}{\sqrt d},\qquad
+ O_i=\sum_{j\in A_i} p_{ij}\,v_j,\qquad
+ p_{ij}=\frac{\exp(s_{ij})}{\sum_{j'\in A_i}\exp(s_{ij'})} .
+ \label{eq:attention}
+\end{equation}
+The \term{score} $s_{ij}$ measures how well key $j$ matches query $i$; the
+\term{softmax} turns the scores of one query into weights $p_{ij}$ that are positive
+and sum to one; the output $O_i$ is the weighted average of the values. $A_i$ is the
+set of keys that query $i$ may use (the \term{mask}). Written this way, attention is a
+Nadaraya--Watson kernel smoother with kernel $\exp(q^\top k/\sqrt d)$: the $N\times N$
+matrix of kernel values is exactly the object whose distributed assembly was discussed
+in Lecture~8.
+
+\paragraph{Heads.} Real models run $H$ independent copies of \cref{eq:attention},
+called \term{heads}, each with its own $q$, $k$ and $v$. In \term{multi-head
+attention} (MHA) every head has its own keys and values. In \term{grouped-query
+attention} (GQA) only $H_{kv}<H$ key/value heads exist and $G=H/H_{kv}$ query heads
+share each of them; query head $h$ reads key/value head $\lfloor h/G\rfloor$. GQA
+matters here because it shrinks exactly the data that has to move between ranks.
+
+\paragraph{Masks.} All masks are predicates on \emph{global} token positions, so
+they are independent of how the sequence is partitioned. The \term{causal} mask
+allows $j\le i$ (a token may not look at the future); it is what language models
+use. The \term{window} mask additionally requires $i-j<w$, and the
+\term{sink+window} mask also keeps the first $s$ tokens. The last two are the
+approximations evaluated in \cref{sec:real}.
+
+\paragraph{Storage layout.} Tensors are flat arrays ordered by token first:
+$Q[N][H][d]$, $K[N][H_{kv}][d]$, $V[N][H_{kv}][d_v]$ and $O[N][H][d_v]$. The shard of
+one rank is then one contiguous slab, which a single MPI call or a single
+host-to-device copy can move.
+
+\subsection{Online softmax: the summary that makes streaming possible}
+A naive evaluation of \cref{eq:attention} needs all scores of a query before it can
+normalise them. \term{Online softmax}~\cite{online} removes that need. For each query
+(and head) keep three quantities over the keys seen so far: the largest score $m$,
+the sum of shifted exponentials $\ell$, and the correspondingly weighted sum of
+values $a$,
+\[
+ m=\max_j s_{ij},\qquad \ell=\sum_j e^{s_{ij}-m},\qquad a=\sum_j e^{s_{ij}-m}\,v_j ,
+\]
+starting from $(m,\ell,a)=(-\infty,0,0)$. When a new block $B$ of keys arrives,
+\begin{align}
+ m' &= \max\bigl(m,\ \max_{j\in B\cap A_i}s_{ij}\bigr), \nonumber\\
+ \ell' &= e^{\,m-m'}\,\ell+\sum_{j\in B\cap A_i}e^{\,s_{ij}-m'}, \label{eq:online}\\
+ a' &= e^{\,m-m'}\,a+\sum_{j\in B\cap A_i}e^{\,s_{ij}-m'}\,v_j . \nonumber
+\end{align}
+The factor $e^{m-m'}\le 1$ re-expresses the old sums relative to the new maximum, so
+the definition of $(m,\ell,a)$ is an invariant of the update. After all keys,
+$O_i=a/\ell$. Three properties make this the right building block.
+\begin{itemize}
+\item \textbf{Stability.} Every exponent is $\le 0$, so nothing overflows however
+large the scores are, and the largest term is exactly $1$, so $\ell\ge 1$ and the
+final division is safe.
+\item \textbf{Order independence.} Blocks may arrive in any order and the result is
+the same up to floating-point rounding. A rank can therefore process key shards in
+whatever order the communication pattern delivers them.
+\item \textbf{Constant state.} A query needs $2+d_v$ numbers of state regardless of
+$N$. No $N\times N$ matrix is ever stored.
+\end{itemize}
+A block in which a query has no allowed key is skipped for that query; evaluating
+$e^{-\infty-(-\infty)}$ would produce NaN. ``Exact'' in this report means that no
+term of \cref{eq:attention} is dropped or approximated; different summation orders
+still differ in the last bits.
+
+\subsection{Cost}
+Each allowed query--key pair costs one $d$-term dot product and one $d_v$-term
+scaled addition, that is $2(d+d_v)$ floating-point operations (FLOPs), plus one
+exponential. I count \term{useful FLOPs} as $2(d+d_v)$ per allowed pair and head,
+and report throughput in GFLOP/s on that basis. Unmasked self-attention has
+$N^2H$ pairs; a causal mask has $N(N+1)H/2$. With the defaults used for scaling
+runs ($d=d_v=64$, $H=1$) one pair is 256 FLOPs.
+
+\section{Serial implementation and performance}\label{sec:serial}
+\input{report/sections/serial.tex}
+
+\section{Parallel design}\label{sec:design}
+
+\subsection{Who owns what}
+The sequence is cut into $P$ shards. With the \term{contiguous} partition rank $r$
+owns one run of consecutive positions. With the \term{zigzag} partition the
+sequence is cut into $2P$ chunks and rank $r$ owns chunks $r$ and $2P-1-r$, an early
+and a late one, the assignment that NVIDIA's context parallelism uses for the same
+purpose~\cite{megatroncp}; \cref{sec:causal} shows why. Remainders are distributed explicitly,
+query and key counts may differ, and a rank may own nothing when $P>N$. Positions
+are recomputed from (owner, partition) on the receiving side and are never sent.
+Each rank stores $O(N/P)$ of every tensor; only the all-gather baseline deliberately
+breaks this rule.
+
+Synthetic data are generated from a hash of (seed, tensor, head, global position,
+column) mapped to $[-1,1)$. Every rank can therefore create its own shard without
+any I/O or scatter, the same mathematical input is obtained for every $P$, and the
+validator can regenerate any row. Dense attention performs the same sequence of
+operations for a given shape and mask whatever the values are (the one
+data-dependent branch is the fall-back of the exponential for arguments below
+$-87$, \cref{sec:serial}), so timings on synthetic data are expected to carry over
+to other data of the same shape; \cref{sec:gqa} runs both. All scaling runs use
+one seed.
+
+\subsection{One compute core, several ways to feed it}
+Every CPU variant calls the same function, which folds one key/value block into the
+online state of the local queries (\cref{eq:online}). The variants differ only in
+how the next block reaches the rank (\cref{tab:variants}). This is deliberate: a
+difference in run time between variants then comes from how blocks are moved,
+stored and synchronised, not from different arithmetic.
+
+\begin{table}[t]
+\centering\small
+\begin{tabularx}{\textwidth}{@{}l l Y l@{}}
+\toprule
+Name & MPI calls & What happens & K/V memory per rank\\
+\midrule
+M0 control & (none while timed) & All shards are gathered \emph{before} the clock starts. In the timed phase each block is copied from that gathered array into the work buffer and processed, in the ring's order, without any MPI call. & $N$ rows\\
+M1 all-gather & \code{Allgatherv} & One blocking collective copies every shard to every rank, then all blocks are processed. & $N$ rows\\
+M1b & \code{Iallgatherv} & Same, but the rank processes its own shard while the collective runs. & $N$ rows\\
+M2 ring & \code{Sendrecv} & Process the held shard, then exchange with both neighbours; $P-1$ exchanges. & $2c$ rows\\
+M3 ring, overlapped & \code{Irecv}/\code{Isend} & Post the exchange of the \emph{next} shard, compute on the current one, then wait; two buffers alternate. & $2c$ rows\\
+M7 one-sided pull & \code{Rget} & Every shard sits in an MPI window. Each rank fetches the shard it needs next while computing; shards it cannot use (fully masked) are never fetched. & $2c$ rows + window\\
+M8 one-sided push & \code{Put} + fence & Each rank writes its current shard into the neighbour's window slot; a collective fence ends every step. & $2c$ rows + window\\
+\bottomrule
+\end{tabularx}
+\caption{Communication strategies. $c=N/P$ rows per rank. Ring variants receive the
+same total payload as the all-gather, but hold only two shards at a time.}
+\label{tab:variants}
+\end{table}
+
+\paragraph{Two-sided versus one-sided.} In M2/M3 both partners take part in every
+transfer (\term{two-sided} communication). In M7/M8 the data sit in a \term{window},
+a region of memory that other ranks may read or write directly, and only the origin
+calls MPI (\term{one-sided} communication, or remote memory access, RMA). An
+\term{epoch} is the period during which such accesses are legal. M7 uses a
+\term{passive-target} epoch: each rank locks all windows once, fills its own window,
+calls \code{MPI\_Win\_sync} to publish the writes, and a barrier guarantees that
+every rank has published before anyone reads. M8 uses an \term{active-target} epoch
+delimited by \code{MPI\_Win\_fence}, a collective call. The two therefore differ in
+synchronisation as well as in direction, and I compare them as complete strategies.
+
+\paragraph{Correctness rules that the code enforces.} A receive buffer is never read
+before its request has completed, and a buffer that is being sent is never resized
+or reused until the send has completed; the two-buffer scheme of M3 exists for this
+reason. MPI is initialised with \code{MPI\_THREAD\_FUNNELED}: only the main thread
+calls MPI and OpenMP threads only compute.
+
+\paragraph{The meaning of ``overlap''.} Posting a nonblocking operation does not by
+itself move data, and the MPI standard does not promise that a library makes
+\term{progress} on it without being called~\cite{mpi}. Whether the bytes travel while
+the rank computes is a property of the installation, which \cref{sec:progress}
+probes with a microbenchmark. M3 and M7 can optionally call \code{MPI\_Testall} between batches of
+query tiles to give the library that opportunity.
+
+\subsection{MPI+OpenMP and MPI+CUDA}\label{sec:xdesign}
+\paragraph{OpenMP.} Inside the compute core the work is a set of independent jobs,
+one per (head, tile of query rows). Threads take jobs with a static schedule; each
+job writes only its own rows of state, so no locks or atomics are needed. A hybrid
+run with $R$ ranks and $T$ threads uses $R\times T$ cores and has $c=N/R$. Ranks
+and threads meet in one place only: every MPI call is made by the main thread
+outside a parallel loop (the optional polling happens between batches of jobs),
+so threads need no synchronisation with MPI beyond the end of that loop. Threads
+never touch an MPI window either. In M7 the window holds a copy of the rank's own
+shard, written once before the clock starts and afterwards only read by other
+ranks, and a fetched block lands in a private buffer that the threads read only
+after its request has completed; in M8 the main thread copies the block out of
+the window after the fence that ends the step.
+
+\paragraph{CUDA.} On a GPU the same block-at-a-time interface is kept: the queries
+and the state $(m,\ell,a)$ live on the device, and one kernel launch folds one
+key/value block into the state. Three kernels form a ladder (\cref{sec:gpu}): K0 is
+a direct port of the serial row loop; K1 tiles the work through shared memory but
+writes the score matrix to global memory between three kernels; K2 fuses everything
+so that scores never leave shared memory and accumulators stay in registers. For
+several GPUs each rank drives one device and the ring of \cref{fig:ring} is used.
+The key/value shard is either exchanged between host buffers and then copied to
+the device (\term{host-staged}; keys and values are read-only, so the host copy that
+was received is also the one that is sent on and nothing is copied back from the
+device) or sent and received directly on device pointers by a \term{CUDA-aware} MPI
+library.
+
+\subsection{Performance model}\label{sec:model}
+Let $F$ be the FLOP rate one rank achieves, $B$ the bandwidth of a transfer in
+bytes per second, $\alpha$ the fixed cost of one exchange (latency and call
+overhead), and $b=4$ the bytes per number. One ring step of one rank costs
+\begin{equation}
+ T_\text{compute}=\frac{2(d+d_v)H\,c^2}{F},\qquad
+ T_\text{comm}=\alpha+\frac{(d+d_v)H_{kv}\,b\,c}{B}. \label{eq:step}
+\end{equation}
+Computation grows with $c^2$ and communication with $c$: \emph{the fewer rows a rank
+owns, the more communication weighs}. If communication is not hidden behind
+computation, the fraction of time spent computing is
+\begin{equation}
+ E_\text{comm}(c)=\frac{T_\text{compute}}{T_\text{compute}+T_\text{comm}}
+ =\frac{1}{1+c^{*}/c+(c_\alpha/c)^2},\qquad
+ c^{*}=\frac{b\,F}{2\,G\,B},\quad c_\alpha=\sqrt{\frac{\alpha F}{2(d+d_v)H}} .
+ \label{eq:model}
+\end{equation}
+The formula treats every one of the $P$ compute steps as followed by an exchange; a
+ring has $P-1$ exchanges, so $c^*$ and $c_\alpha^2$ carry a factor $(P-1)/P$, which is
+ignored here ($P\ge8$ in the runs it is compared with). $F$, $B$ and $\alpha$ are
+constants only for a fixed configuration: they change with the threads per rank,
+with where the ranks sit (socket, node, network), with the message size and with
+how many ranks communicate at once. The statements that follow are therefore meant
+\emph{for a given configuration}, and \cref{sec:collapse} names the cases that
+break them.
+\begin{enumerate}
+\item \textbf{Rows per rank.} For a given configuration, efficiency depends on $N$
+and $P$ only through $c=N/P$: runs with different $N$ and $P$ but equal $c$ should
+coincide.
+\item \textbf{Faster kernels are harder to feed.} Both thresholds grow with $F$
+($c^*\propto F$, $c_\alpha\propto\sqrt F$). A rank that computes tens of times
+faster, such as a rank with many threads or a GPU, shows communication at
+rows-per-rank values where a single CPU core does not, unless its transfers
+overlap with the computation.
+\item \textbf{GQA helps the network, not the kernel.} $c^*$ is divided by
+$G=H/H_{kv}$, because GQA shrinks the bytes moved per unit of work.
+\end{enumerate}
+\Cref{eq:model} also gives the isoefficiency rule: to keep efficiency constant, $c$
+must stay constant, so $N$ must grow in proportion to $P$ and the work in proportion
+to $P^2$.
+
+\input{report/sections/validation.tex}
+\input{report/sections/mpi.tex}
+\input{report/sections/mpix.tex}
+\input{report/sections/real.tex}
+\inputifexists{report/sections/discussion.tex}
+
+\section*{Use of AI tools}
+\input{report/sections/ai.tex}
+
+\begin{thebibliography}{99}\small
+\bibitem{ring} H. Liu, M. Zaharia and P. Abbeel. \emph{Ring Attention with Blockwise
+Transformers for Near-Infinite Context}. 2023. \url{https://arxiv.org/abs/2310.01889}.
+\bibitem{online} M. Milakov and N. Gimelshein. \emph{Online normalizer calculation for
+softmax}. 2018. \url{https://arxiv.org/abs/1805.02867}.
+\bibitem{flash} T. Dao, D. Fu, S. Ermon, A. Rudra and C. R\'e. \emph{FlashAttention: Fast
+and Memory-Efficient Exact Attention with IO-Awareness}. 2022.
+\url{https://arxiv.org/abs/2205.14135}.
+\bibitem{flash2} T. Dao. \emph{FlashAttention-2: Faster Attention with Better
+Parallelism and Work Partitioning}. 2023. \url{https://arxiv.org/abs/2307.08691}.
+\bibitem{flash3} J. Shah et al.
+\emph{FlashAttention-3: Fast and Accurate Attention with Asynchrony and
+Low-precision}. 2024. \url{https://arxiv.org/abs/2407.08608}.
+\bibitem{sdpa} PyTorch documentation.
+\emph{torch.nn.functional.scaled\_dot\_product\_attention}.
+\url{https://pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html}.
+\bibitem{striped} W. Brandon et al. \emph{Striped Attention: Faster Ring Attention
+for Causal Transformers}. 2023. \url{https://arxiv.org/abs/2311.09431}.
+\bibitem{ulysses} S. A. Jacobs et al. \emph{DeepSpeed Ulysses: System Optimizations for
+Enabling Training of Extreme Long Sequence Transformer Models}. 2023.
+\url{https://arxiv.org/abs/2309.14509}.
+\bibitem{usp} J. Fang and S. Zhao. \emph{USP: A Unified Sequence Parallelism Approach
+for Long Context Generative AI}. 2024. \url{https://arxiv.org/abs/2405.07719}.
+\bibitem{megatroncp} NVIDIA. \emph{Megatron-Core developer guide: Context
+Parallelism}. \url{https://docs.nvidia.com/megatron-core/developer-guide/latest/user-guide/features/context_parallel.html}.
+\bibitem{qwen} Qwen Team. \emph{Qwen2.5-0.5B} model card. 2024.
+\url{https://huggingface.co/Qwen/Qwen2.5-0.5B}.
+\bibitem{streaming} G. Xiao, Y. Tian, B. Chen, S. Han and M. Lewis. \emph{Efficient
+Streaming Language Models with Attention Sinks}. 2023. \url{https://arxiv.org/abs/2309.17453}.
+\bibitem{cephes} S. L. Moshier. \emph{Cephes Mathematical Library}, single-precision
+\code{expf}. \url{https://www.netlib.org/cephes/}.
+\bibitem{mpi} Message Passing Interface Forum. \emph{MPI: A Message-Passing Interface
+Standard, Version 4.1}. 2023. Chapter 12, One-Sided Communications.
+\end{thebibliography}
+
+\appendix
+\input{report/sections/appendix.tex}
+\end{document}
