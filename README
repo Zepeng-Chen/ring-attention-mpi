@@ -96,11 +96,20 @@ Main options of `attn_bench` (`--help` lists all): `--N`, `--Nq`, `--d`, `--dv`,
 none|causal|window|sink-window` with `--window`/`--sink`, `--partition
 contiguous|zigzag`, `--block-q`, `--block-k` (tile sizes; defaults 128 and 96, the
 measured optimum for `d = 64`), `--kernel tuned|basic`,
-`--threads`, `--poll-tiles`, `--fetch-order`, `--data synthetic|file:<dir>`,
+`--threads` (a rank with `T > 1` threads uses query tiles of at most
+`ceil(rows / 4T)` rows, so that every thread has several tiles; the CSV records
+the requested `--block-q`), `--poll-tiles n` (call `MPI_Testall` after every `n`
+query tiles; the threads share one such batch at a time, so use `n >= T`),
+`--fetch-order`, `--data synthetic|file:<dir>`,
 `--alpha` (scales Q to stress the softmax), `--validate R`, `--warmup`, `--reps`,
 `--warmup-seconds s` (keep warming up for at least `s` seconds; the report uses 5),
 `--csv`, `--rank-csv`, `--trace-csv`, `--mha-control 1`, `--oref <file>`,
 `--tolerance-scale x`.
+
+With a causal mask use one thread per rank: threads take contiguous runs of query
+tiles, which are not balanced under that mask. The example values that `--help`
+prints for `--block-q` and `--block-k` are not the defaults; the defaults are the
+ones stated above (128 and 96).
 
 Each run prints or appends one CSV line per repetition: rank-maximum and
 rank-mean times (total, compute, blocked in MPI), bytes received, useful FLOPs,

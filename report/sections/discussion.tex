@@ -90,7 +90,10 @@ machine: inside one node any of the strategies works, and the one-sided pull was
 the cheapest when ranks own few rows; across nodes use the overlapped ring and
 keep a rank above a few hundred rows, if necessary by using fewer ranks with more
 threads; do not all-gather when memory per rank matters; with a causal mask use
-the zigzag partition with a ring. The fastest configuration measured on four
+the zigzag partition with a ring. The last two pieces of advice do not combine in
+this implementation: with a causal mask, threads inside a rank are not balanced
+(see the limits below), so a causal run should use one thread per rank. The
+fastest configuration measured on four
 nodes for $N=131{,}072$ was \n{hybrid.best.ranks.288} ranks of
 \n{hybrid.best.threads.288} threads with the overlapped ring:
 \n{hybrid.best.time.288}\,s, a speedup of \n{hybrid.speedup.288}. Two GPUs do the
@@ -111,7 +114,14 @@ one variable among several. Every
 configuration was measured three times in a row within one job, with one seed, so
 differences of a few per cent are not resolved. The partition is static; the four
 nodes used were equally fast, so its behaviour on unequal nodes was not tested.
-The largest CPU run uses 288 cores and the largest GPU run two devices. The GPU
+The largest CPU run uses 288 cores and the largest GPU run two devices. The
+threads of a rank take contiguous runs of its query tiles. That balances an
+unmasked run, but with a causal mask the late rows of a rank carry more work than
+the early ones, so the zigzag partition balances the ranks and not the threads
+inside a rank; a development check on four cores showed most of the causal saving
+lost when threads replaced ranks. No timing in this report combines a causal mask
+with more than one thread per rank, and an interleaved or dynamic assignment of
+tiles would be needed before doing so. The GPU
 kernels were not profiled, GPU runs warm up with one repetition only, and what
 limits the exchange between GPU nodes at small sizes was not found. Only the
 forward pass of one layer with as many queries as keys was studied: not training,

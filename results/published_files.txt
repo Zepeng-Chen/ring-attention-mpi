@@ -26,6 +26,7 @@ results/hpc/vanda/e1-serial-20261110T170345Z/build-gcc-native-w512.cache.txt
 results/hpc/vanda/e1-serial-20261110T170345Z/build-gcc-native.cache.txt
 results/hpc/vanda/e1-serial-20261110T170345Z/environment.txt
 results/hpc/vanda/e1-serial-20261110T170345Z/exit-status.txt
+results/hpc/vanda/e1-serial-20261110T170345Z/failures.txt
 results/hpc/vanda/e1-serial-20261110T170345Z/finished-utc.txt
 results/hpc/vanda/e1-serial-20261110T170345Z/job.id
 results/hpc/vanda/e1-serial-20261110T170345Z/nodes.txt

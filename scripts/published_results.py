@@ -17,7 +17,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNS = ROOT / "results" / "hpc" / "vanda"
-RECORDS = ("environment.txt", "gpu-environment.txt", "exit-status.txt", "finished-utc.txt", "nodes.txt", "submit.txt", "job.id")
+RECORDS = ("environment.txt", "gpu-environment.txt", "exit-status.txt", "finished-utc.txt", "nodes.txt", "submit.txt", "job.id",
+           "failures.txt")       # the failure log: the audit checks that it lists only declared failures
 
 
 def published():

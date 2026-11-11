@@ -1,0 +1,6 @@
+FAILED: serial-error --impl S1 --kernel tuned --block-q 128 --block-k 16 --N 4096 --validate 4096 --alpha 50
+FAILED: serial-error --impl S1 --kernel tuned --block-q 128 --block-k 256 --N 4096 --validate 4096 --alpha 50
+FAILED: serial-error --impl S1 --kernel tuned --block-q 128 --block-k 4096 --N 4096 --validate 4096 --alpha 50
+FAILED: serial-error --impl S1 --kernel tuned --block-q 128 --block-k 16 --N 16384 --validate 16384 --alpha 50
+FAILED: serial-error --impl S1 --kernel tuned --block-q 128 --block-k 256 --N 16384 --validate 16384 --alpha 50
+FAILED: serial-error --impl S1 --kernel tuned --block-q 128 --block-k 4096 --N 16384 --validate 16384 --alpha 50

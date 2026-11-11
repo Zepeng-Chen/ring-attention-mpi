@@ -299,7 +299,15 @@ query tiles to give the library that opportunity.
 \paragraph{OpenMP.} Inside the compute core the work is a set of independent jobs,
 one per (head, tile of query rows). Threads take jobs with a static schedule; each
 job writes only its own rows of state, so no locks or atomics are needed. A hybrid
-run with $R$ ranks and $T$ threads uses $R\times T$ cores and has $c=N/R$. Ranks
+run with $R$ ranks and $T$ threads uses $R\times T$ cores and has $c=N/R$. So that
+every thread has several jobs, a rank with $T>1$ threads cuts its queries into at
+least $4T$ tiles: its query tile has $\min(B_q,\lceil c/(4T)\rceil)$ rows (the
+result files record the requested $B_q$). The 72-core splits of \cref{fig:hybrid}
+keep $B_q=128$; every threaded split on 288 cores uses 114 rows, and the 18-thread
+ranks of \cref{fig:smallc}b and \cref{sec:collapse} use 4 to 64 rows. Smaller query
+tiles lower the kernel's throughput (\cref{fig:tiles}). A variant and the control
+it is compared with always use the same tiles, so ratios to the control are not
+affected; absolute times of threaded and single-thread runs are. Ranks
 and threads meet in one place only: every MPI call is made by the main thread
 outside a parallel loop (the optional polling happens between batches of jobs),
 so threads need no synchronisation with MPI beyond the end of that loop. Threads
