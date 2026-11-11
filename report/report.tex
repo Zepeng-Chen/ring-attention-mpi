@@ -303,8 +303,10 @@ run with $R$ ranks and $T$ threads uses $R\times T$ cores and has $c=N/R$. So th
 every thread has several jobs, a rank with $T>1$ threads cuts its queries into at
 least $4T$ tiles: its query tile has $\min(B_q,\lceil c/(4T)\rceil)$ rows (the
 result files record the requested $B_q$). The 72-core splits of \cref{fig:hybrid}
-keep $B_q=128$; every threaded split on 288 cores uses 114 rows, and the 18-thread
-ranks of \cref{fig:smallc}b and \cref{sec:collapse} use 4 to 64 rows. Smaller query
+keep $B_q=128$; every threaded split on 288 cores uses 114 rows. The 18-thread
+ranks of \cref{fig:smallc}b use 4 to 64 rows; those of \cref{sec:collapse} use
+$\lceil c/72\rceil$ rows up to the full 128, that is 32 rows at 2{,}304 rows per
+rank and 128 from 9{,}216 rows per rank on. Smaller query
 tiles lower the kernel's throughput (\cref{fig:tiles}). A variant and the control
 it is compared with always use the same tiles, so ratios to the control are not
 affected; absolute times of threaded and single-thread runs are. Ranks

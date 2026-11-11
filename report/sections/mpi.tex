@@ -257,14 +257,15 @@ advantage turns into its opposite between nodes.
 \paragraph{Faster ranks are harder to feed.} The second prediction of
 \cref{sec:model} can be tested inside the node as well. With \n{fat.ranks} ranks of
 \n{fat.threads} threads the kernel of a rank is many times faster, while the
-exchange of a shard of given size does not speed up in the same proportion. (These
-ranks use query tiles of 32 rows or fewer, \cref{sec:xdesign}, which makes their
-kernel slower than it could be; the effect measured here is therefore, if
-anything, understated.) At 2{,}304 rows per rank the ring
+exchange of a shard of given size does not speed up in the same proportion. At
+2{,}304 rows per rank the ring
 then keeps \n{fat.E.ring.T18.c2304} and the overlapped ring
 \n{fat.E.overlap.T18.c2304}, where the thin-rank curve gives \n{fat.thin.c2304}; the
 loss falls below a few per cent only near 18{,}000 rows
-(\n{fat.E.ring.T18.c18432}).
+(\n{fat.E.ring.T18.c18432}). (At 2{,}304 rows per rank these ranks use query tiles
+of 32 rows, \cref{sec:xdesign}, which makes their kernel slower than it could be,
+so the loss at that size is, if anything, understated. From 9{,}216 rows per rank
+on they use the full 128 rows, and the figure near 18{,}000 rows is not affected.)
 
 \begin{figure}[t]
 \centering
