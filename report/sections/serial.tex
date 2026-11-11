@@ -38,7 +38,10 @@ Own exponential & Range reduction $x=k\ln2+r$, a degree-6 polynomial for $e^{r}$
 \figureifexists{serial_scaling.pdf}
 \caption{One core of a Xeon Platinum 8452Y. (a) Run time against sequence length
 for the four serial codes ($d=d_v=64$, one head). (b) Time per query--key pair
-against the head dimension. (c) Useful throughput of the single-precision kernels.}
+against the head dimension. (c) Useful throughput of the single-precision kernels.
+\emph{Result:} the time grows as $N^2$ (fitted exponent \n{serial.slope.tuned} for the tuned
+kernel), and the tuned kernel is \n{serial.speedup.tuned} times faster than the
+basic blocked one.}
 \label{fig:serial}
 \end{figure}
 
@@ -112,7 +115,9 @@ runs.
 \centering
 \figureifexists{serial_tiles.pdf}
 \caption{Useful GFLOP/s of the tuned kernel for every combination of tile sizes
-($N=16{,}384$, one core).}
+($N=16{,}384$, one core). \emph{Result:} the throughput peaks at
+$B_k=\n{tiles.used.bk}$ keys and is \n{tiles.cliff.pct}\% lower at twice that size;
+longer query tiles help.}
 \label{fig:tiles}
 \end{figure}
 

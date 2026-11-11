@@ -1,4 +1,4 @@
-\begin{table}[!ht]\centering\footnotesize\setlength{\tabcolsep}{3.5pt}
+\begin{table}[!htb]\centering\footnotesize\setlength{\tabcolsep}{3.5pt}
 \begin{tabularx}{\textwidth}{@{}l l l r >{\hsize=1.5\hsize}Y >{\hsize=0.5\hsize}Y@{}}
 \toprule
 PBS job & allocated & source & validated & measures & used by\\
@@ -23,6 +23,6 @@ PBS job & allocated & source & validated & measures & used by\\
 1538060 & 4 $\times$ 72 cores & \code{26bcb9e576} & 615 & strong scaling, 72 to 288 cores (four nodes), with its own serial baseline; the same at 288 cores; microbenchmark, few rows per rank, traces, placement & \cref{fig:causal,fig:collapse,fig:hybrid,fig:netbench,fig:smallc,fig:strong,fig:traces,fig:weak,tab:strong}\\
 \bottomrule
 \end{tabularx}
-\caption{Provenance of the results: one line per Vanda job. ``Allocated'': nodes $\times$ cores per node given to the job (a GPU job receives 36 cores per GPU); a job also measures configurations that use fewer cores than it was given. ``Source'': identifier of the source snapshot the job was built from; the compute and benchmark-driver sources of all CPU jobs are byte-identical, as are the kernel sources of all GPU jobs. The submitted compute and kernel sources are these files; the submitted driver differs from the measured one in two option checks (\cref{app:environment}). ``Validated'': repetitions compared with the double-precision reference on sampled rows; the failures are those of the stress study of \cref{sec:validation}. ``Used by'': figures and tables computed from the job's files (``text'': quoted numbers only).}
+\caption{Provenance of the results: one line per Vanda job. ``Allocated'': nodes $\times$ cores per node given to the job (a GPU job receives 36 cores per GPU); a job also measures configurations that use fewer cores than it was given. ``Source'': identifier of the source snapshot the job was built from; how the snapshots relate to each other and to the submitted source is stated in \cref{app:environment}. ``Validated'': repetitions compared with the double-precision reference on sampled rows; the failures are those of the stress study of \cref{sec:validation}. ``Used by'': figures and tables computed from the job's files (``text'': quoted numbers only).}
 \label{tab:provenance}
 \end{table}

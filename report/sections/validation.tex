@@ -69,6 +69,18 @@ hard study, described next; no repetition of a scaling experiment failed. Runnin
 the same problem with different rank counts and variants changes the result only in
 the last bits: in the strong-scaling runs the error of one problem against double
 precision differs by at most $\n{val.rankspread}$ between configurations.
+Repeating one configuration, by contrast, gave the same result every time. Floating-point
+addition is not associative, so a parallel sum can change from run to run when
+its order depends on timing; here it does not. A rank folds the key blocks in the
+order fixed by its schedule and not in the order of arrival, threads own disjoint
+query rows, and no floating-point reduction runs across ranks. Only a change of
+the configuration ($P$, the partition, the variant, the fetch order) regroups the
+terms. The unit tests
+require the output of three consecutive runs to be identical bit for bit for
+every variant. In the formal runs, the repetitions of each of the \RepeatedRuns{}
+program runs with more than one validated repetition report the same error to the
+last recorded digit, and so do the \RestartedConfigurations{} configurations that
+were started more than once, \RestartedOtherJob{} of them in different jobs.
 
 \paragraph{How large is the error, and where does it come from?} For $N$ up to
 \n{err.rows.max} the tuned kernel was compared with double precision on

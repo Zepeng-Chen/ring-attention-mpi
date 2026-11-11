@@ -107,7 +107,10 @@ heads. Lines are medians over (query, head) pairs and bands the interquartile ra
 of those pairs (a description of their distribution, not a confidence interval:
 neighbouring tokens and heads are not independent samples).
 (a) Probability mass on the most recent $w$ tokens. (b) Relative output error of the
-window approximation. (c) The same with the first four tokens kept.}
+window approximation. (c) The same with the first four tokens kept.
+\emph{Result:} layer 0 attends locally; in layer 11 a pure window fails and keeping four
+sink tokens repairs it; layer 23 is so diffuse that even a 16{,}384-token window
+changes the median output by \n{real.err_w.layer23.16384}\%.}
 \label{fig:realwindow}
 \end{figure}
 
@@ -116,7 +119,10 @@ window approximation. (c) The same with the first four tokens kept.}
 \figureifexists{real_heads.pdf}
 \caption{The same data per head (medians). (a) Error of a 1{,}024-token window; the
 colour saturates at 1. (b) Probability on the first token. Heads 0--6 read
-key/value head 0 and heads 7--13 read key/value head 1.}
+key/value head 0 and heads 7--13 read key/value head 1. \emph{Result:} in layer 11
+the \n{real.sinkheads.count} heads of key/value head 1 put
+\n{real.sinkheads.min}\% to \n{real.sinkheads.max}\% of their probability on the
+first token, and they have the largest window errors.}
 \label{fig:realheads}
 \end{figure}
 

@@ -36,9 +36,7 @@ of this report is one suite of \code{scripts/hpc/jobs/experiment.pbs} (CPU),
 \code{gpu\_experiment.pbs} (GPU), \code{real\_data.pbs} or \code{unit\_tests.pbs};
 \code{scripts/hpc/cluster.sh} stages an immutable copy of the source, named by a hash
 of exactly the staged files and checked against that hash after copying, submits
-the job and retrieves the result directory. Configurations of up to 72 cores ran in
-one-node jobs and larger ones in a four-node job, because the cluster charges for
-allocated cores. \code{scripts/build\_report.sh} deletes the generated figures,
+the job and retrieves the result directory. \code{scripts/build\_report.sh} deletes the generated figures,
 tables and numbers, rebuilds them and the PDF from the retrieved files, and stops if
 a number has no data, a figure is missing or a reference is undefined.
 

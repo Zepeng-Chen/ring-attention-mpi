@@ -87,7 +87,10 @@ the protocol and demonstrated by their own experiments.
 
 \paragraph{What I would choose.} For a sequence of $N$ tokens on $P$ ranks of this
 machine: inside one node any of the strategies works, and the one-sided pull was
-the cheapest when ranks own few rows; across nodes use the overlapped ring and
+the cheapest when ranks own few rows, provided its window already exists
+(creating it takes \n{setup.rma_get.P72.min}\,s or more with 72 ranks,
+\cref{sec:setup}, so for a single call it is the most expensive); across nodes
+use the overlapped ring and
 keep a rank above a few hundred rows, if necessary by using fewer ranks with more
 threads; do not all-gather when memory per rank matters; with a causal mask use
 the zigzag partition with a ring. The last two pieces of advice do not combine in

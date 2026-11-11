@@ -1,6 +1,6 @@
 \section{MPI scaling}\label{sec:mpi}
 
-\subsection{Set-up}
+\subsection{Set-up}\label{sec:setup}
 All runs use Vanda's 72-core nodes (\cref{tab:environment}), one core per rank,
 ranks filling the first socket, then the second, then the next node. A job owns its
 nodes exclusively. Configurations of up to 72 cores were measured in one-node jobs
@@ -9,7 +9,8 @@ both and agree within \n{strong.anchor.maxdev.pct}\%. Each configuration warms u
 for at least five seconds and is then measured three times; the time of a repetition
 is the maximum over ranks of the attention phase (state reset, communication,
 computation, final division), and the reported time is the median of the three.
-Data generation, window creation and validation are outside the timed phase. The
+Data generation, the set-up of a variant and validation are outside the timed
+phase. The
 three repetitions follow each other inside one job, so their spread describes
 short-term fluctuation, not the variation between allocations. For the
 \n{rep.long.n} timed CPU configurations that last at least 50\,ms, they differ by
@@ -31,6 +32,19 @@ $N=32{,}768$, within \n{baseline.gap.pct}\% of each other: the MPI driver adds
 nothing measurable to a single rank, so a speedup below is a statement about
 parallel execution and not about two different serial codes.
 
+\paragraph{The set-up that is not timed.} For the one-sided variants the set-up
+is not small, because it creates the MPI window. In the strong-scaling runs it
+takes \n{setup.rma_get.P72.min} to \n{setup.rma_get.P72.max}\,s for M7 with 72
+ranks on one node and \n{setup.rma_get.P288.min} to \n{setup.rma_get.P288.max}\,s
+with 288 ranks on four (M8: \n{setup.rma_put.P288}\,s), whatever the problem size,
+against \n{setup.rma_get.P8.max}\,s or less with 8 ranks and at most
+\n{setup.ring.max.ms}\,ms for the rings. For $N=32{,}768$ on 72 ranks this is
+\n{setup.rma_get.over.timed.small.72} times the timed phase of M7
+(\n{setup.rma_get.timed.small.72}\,s). The times reported for M7 and M8 are
+therefore those of an attention call on a window that already exists, as when a
+layer is evaluated again and again; a single call would be dominated by the
+set-up.
+
 \subsection{Strong scaling}
 \inputifexists{report/generated/table_strong.tex}
 
@@ -41,7 +55,10 @@ parallel execution and not about two different serial codes.
 problem sizes. (b) Parallel efficiency at the largest size of the five variants in
 the strong-scaling grid (M1 and M7 from eight ranks; M1b and M8 appear in
 \cref{fig:smallc}). (c) The efficiency of M3 in (b) written as the product of two
-factors: the efficiency of the control M0, and the speed of M3 relative to M0.}
+factors: the efficiency of the control M0, and the speed of M3 relative to M0.
+\emph{Result:} a speedup of \n{strong.S.big.288} on 288 cores for the largest size; the
+variants agree inside one node and separate beyond it; most of the lost efficiency
+is already lost by the control.}
 \label{fig:strong}
 \end{figure}
 
@@ -107,7 +124,9 @@ throughput per core against the number of active cores. (b) Clock: frequency of 
 busiest cores sampled every 0.25\,s during the measured repetitions (coloured), and
 the average over a whole run from hardware counters, cycles per CPU second, in a
 separate job on another node (black). (c) Query--key pairs per cycle from the same
-counters, relative to one rank.}
+counters, relative to one rank. \emph{Result:} on a full node a core delivers
+\n{hw.eff.72} of its single-rank throughput; the clock falls by a factor of
+\n{clock.fratio.72} and the work per cycle by \n{clock.wratio.72}.}
 \label{fig:hardware}
 \end{figure}
 
@@ -131,7 +150,11 @@ the largest problem), so what $E_\text{comm}$ loses is spent outside the kernel.
 \Cref{fig:strong}c shows both factors for the largest problem: at 72 cores
 $E_0=\n{strong.Ehw.big.72}$ and $E_\text{comm}=\n{strong.Ecomm.big.72}$; at 288 cores
 $E_0=\n{strong.Ehw.big.288}$ and $E_\text{comm}=\n{strong.Ecomm.big.288}$. Most of the
-loss is already present in the control, on one node and on four.
+loss is already present in the control, on one node and on four. It is not the
+serial portion of Amdahl's law: the timed phase has none, since every rank does
+its $1/P$ of the pairs and no step is carried out by one rank alone. The
+efficiency accordingly follows the load of a node and the size of the pieces
+rather than $P$ itself, as the next paragraph shows.
 
 $E_0$ is therefore a product of two measured factors. The first is the clock. The
 second, the work per cycle, behaves like a cost of the granularity of the
@@ -168,7 +191,10 @@ form with one constant fitted to the rings with \n{model.thin.ranks} single-thre
 ranks on one node and $c\ge\n{model.cmin.fit}$ (\n{model.fit.n} points); all other
 points took no part in the fit. Dotted: no fitted constant, the compute time of a
 block divided by itself plus the exchange time measured with 72 ranks and no
-computation.}
+computation. \emph{Result:} inside one node the rings follow one curve in the rows per
+rank, with a constant \n{model.cstar.ratio} times the one predicted from the
+two-rank microbenchmark; across nodes the blocking ring and the all-gather fall
+below it.}
 \label{fig:collapse}
 \end{figure}
 
@@ -251,7 +277,9 @@ With the same thin ranks it stays between \n{collapse.get.min} and
 reason is that a Get from a window in shared memory can be served by the reader
 alone with a single copy, whereas a matched send and receive needs both ranks;
 how many copies each path makes depends on the library's shared-memory transport
-and the message size, which I did not inspect. \Cref{sec:progress} shows that this
+and the message size, which I did not inspect. The comparison is per call, with
+the window in place; creating the window takes longer than any of these calls
+(\cref{sec:setup}). \Cref{sec:progress} shows that this
 advantage turns into its opposite between nodes.
 
 \paragraph{Faster ranks are harder to feed.} The second prediction of
@@ -273,7 +301,11 @@ on they use the full 128 rows, and the figure near 18{,}000 rows is not affected
 \caption{Run time relative to the control M0 when ranks own few rows. (a) 288
 single-thread ranks on four nodes. (b) 16 ranks of 18 threads on the same four
 nodes; open markers: the repeat of three sizes in a later job, two rounds.
-Logarithmic vertical axes.}
+Logarithmic vertical axes. \emph{Result:} at \n{smallc.thin.cmin} to
+\n{smallc.thin.cmax} rows per rank the rings and the blocking all-gather take up to
+\n{smallc.thin.allgather.c8} times as long as the control and the one-sided
+variants \n{smallc.thin.rma_put.c128} to \n{smallc.thin.rma_get.c8} times; ranks of
+18 threads show the same ordering at about ten times more rows.}
 \label{fig:smallc}
 \end{figure}
 
@@ -283,7 +315,9 @@ variant. With 288 thin ranks and 128 rows each, the overlapped ring takes
 \n{smallc.thin.ring.c128} and the all-gather \n{smallc.thin.allgather.c128}; at 8
 rows the factors are \n{smallc.thin.overlap.c8}, \n{smallc.thin.ring.c8} and
 \n{smallc.thin.allgather.c8}. The nonblocking all-gather is much worse
-(\n{smallc.thin.iallgather.c128} and \n{smallc.thin.iallgather.c8}), and the
+(\n{smallc.thin.iallgather.c128} and \n{smallc.thin.iallgather.c8}). I did not
+investigate why: the program differs from M1 only in that call, so the cause
+lies in how the library carries out the nonblocking collective. The
 one-sided variants are in a different class: the push with a fence per step takes
 \n{smallc.thin.rma_put.c128} and \n{smallc.thin.rma_put.c8} times the control, the
 pull \n{smallc.thin.rma_get.c128} and \n{smallc.thin.rma_get.c8} times. With 16 ranks
@@ -325,7 +359,9 @@ ranks: the speed changes by a factor between \n{poll.worst.overlap} and
 two-sided ping-pong and one-sided Get, inside a node and between nodes. (b) Time
 until a transfer completes while the \emph{other} rank computes for 0.2\,s without
 calling MPI: a receive from a busy sender, and a Get from a busy target. The rank
-that waits is inside MPI the whole time.}
+that waits is inside MPI the whole time. \emph{Result:} inside a node the transfer
+completes while the peer computes; between nodes it completes only when the peer
+returns to MPI, for the receive and for the Get alike.}
 \label{fig:netbench}
 \end{figure}
 
@@ -355,7 +391,9 @@ system, and the following measurements of the application agree with it.
 $N=32{,}768$): time per ring step, median of the three repetitions, on logarithmic
 axes. (a) Time blocked in an MPI wait. (b) Time in the compute kernel. These are
 program events (when a call started and returned), not a recording of the bytes
-on the wire. The last step has no exchange.}
+on the wire. The last step has no exchange. \emph{Result:} the blocking ring waits
+about \n{trace.wait.step.ms.ring}\,ms per step and the overlapped ring less; the
+one-sided pull waits far longer, and unevenly.}
 \label{fig:traces}
 \end{figure}
 
@@ -394,7 +432,9 @@ ring's communication costs less than the clock gains.
 \figureifexists{weak_scaling.pdf}
 \caption{Weak scaling, logarithmic axes. (a) Rows per rank fixed ($N=1024P$, up to
 288 ranks): the work per rank grows with $P$. (b) Work per rank fixed
-($N=16{,}384\sqrt P$, up to 256 ranks).}
+($N=16{,}384\sqrt P$, up to 256 ranks). \emph{Result:} (a) the time grows in
+proportion to $P$, so the efficiency is constant; (b) the time is flat apart from
+the step where the node fills and the clock drops.}
 \label{fig:weak}
 \end{figure}
 
@@ -407,9 +447,10 @@ line from 1 to 288 ranks. In terms of efficiency, $P\,T_1/T_P$ is
 \n{weak.rows1024.E.overlap.72} at 72 ranks and \n{weak.rows1024.E.overlap.288} at
 288 for the overlapped ring, and \n{weak.rows1024.E.local.72} and
 \n{weak.rows1024.E.local.288} for the control: constant, as predicted, and again
-already present in the control. The corresponding scaled speedup (the time one
-core would need for the $P$ times longer sequence, $P^2T_1$, over the measured
-time) is \n{weak.rows1024.S.overlap.72} at 72 ranks and
+already present in the control. The corresponding scaled speedup, the quantity of
+Gustafson's law (the time one core would need for the $P$ times longer sequence,
+here $P^2T_1$ because the work grows as $N^2$, over the measured time; ideally
+$P$), is \n{weak.rows1024.S.overlap.72} at 72 ranks and
 \n{weak.rows1024.S.overlap.288} at 288. The blocking ring reaches
 \n{weak.rows1024.E.ring.288} at 288 ranks and the one-sided pull
 \n{weak.rows1024.E.rma_get.288}. If instead the \emph{work per rank} is
@@ -447,7 +488,10 @@ pairs.
 \caption{Causal mask, $N=131{,}072$. (a) Compute time of each of eight ranks
 (logarithmic axis). (b) Run time relative to the unmasked run of the overlapped
 ring (8 and 72 ranks on one node, 288 on four; logarithmic axis). (c) Bytes
-received by the one-sided pull relative to the ring, summed over ranks.}
+received by the one-sided pull relative to the ring, summed over ranks.
+\emph{Result:} with the contiguous partition the causal run takes as long as the
+unmasked one, with the zigzag partition \n{causal.ratio.overlap.zigzag.72} of it
+(72 ranks); the pull halves its traffic only with the contiguous partition.}
 \label{fig:causal}
 \end{figure}
 
@@ -489,7 +533,8 @@ and for a pull only while fetches are cheap.
 \figureifexists{memory.pdf}
 \caption{Peak resident memory of the largest rank, 72 ranks on one node, measured
 in separate runs without validation. Dotted: the one-sided variant with its shared
-window counted once instead of once per rank.}
+window counted once instead of once per rank. \emph{Result:} at $N=\n{mem.N.h}$ a rank
+of the all-gather holds \n{mem.ratio} times the memory of a rank of the ring.}
 \label{fig:memory}
 \end{figure}
 

@@ -433,7 +433,7 @@ TABLE_LABEL = {"table_strong": "tab:strong", "table_align": "tab:align", "table_
 def table(result):
     uses = used_by()
     measures = json.loads(io.SELECTION.read_text()).get("measures", {})
-    lines = [r"\begin{table}[!ht]\centering\footnotesize\setlength{\tabcolsep}{3.5pt}",
+    lines = [r"\begin{table}[!htb]\centering\footnotesize\setlength{\tabcolsep}{3.5pt}",
              r"\begin{tabularx}{\textwidth}{@{}l l l r >{\hsize=1.5\hsize}Y >{\hsize=0.5\hsize}Y@{}}", r"\toprule",
              r"PBS job & allocated & source & validated & measures & used by\\", r"\midrule"]
     for run, e in result["runs"].items():
@@ -453,10 +453,8 @@ def table(result):
     lines += [r"\bottomrule", r"\end{tabularx}",
               r"\caption{Provenance of the results: one line per Vanda job. ``Allocated'': nodes $\times$ cores per node given to "
               r"the job (a GPU job receives 36 cores per GPU); a job also measures configurations that use fewer cores than "
-              r"it was given. ``Source'': identifier of the source snapshot the job was built from; the compute and benchmark-driver "
-              r"sources of all CPU jobs are byte-identical, as are the kernel sources of all GPU jobs. The submitted compute and "
-              r"kernel sources are these files; the submitted driver differs from the measured one in two option checks "
-              r"(\cref{app:environment}). ``Validated'': repetitions compared with the double-precision reference on sampled rows; the failures are "
+              r"it was given. ``Source'': identifier of the source snapshot the job was built from; how the snapshots relate to "
+              r"each other and to the submitted source is stated in \cref{app:environment}. ``Validated'': repetitions compared with the double-precision reference on sampled rows; the failures are "
               r"those of the stress study of \cref{sec:validation}. ``Used by'': figures and tables computed from the job's files "
               r"(``text'': quoted numbers only).}", r"\label{tab:provenance}", r"\end{table}"]
     GEN.mkdir(parents=True, exist_ok=True)

@@ -14,7 +14,10 @@ measured balance for $N=131{,}072$.
 four nodes into ranks $\times$ threads, $N=131{,}072$. Grey: the no-communication
 control at the same split; bands show the range of three repetitions. Both axes
 are logarithmic; the time axes cover only a few per cent, so small differences
-look large.}
+look large. \emph{Result:} inside a node the split hardly matters (all splits within
+\n{hybrid.range.pct.72}\%); on four nodes \n{hybrid.best.ranks.288} ranks of
+\n{hybrid.best.threads.288} threads are \n{hybrid.gain.pct.288}\% faster than 288
+single-thread ranks.}
 \label{fig:hybrid}
 \end{figure}
 
@@ -82,7 +85,10 @@ entirely in the future of the 32 queries is skipped before it is loaded.
 \caption{One NVIDIA A40, $d=d_v=64$, one head, no mask. (a) Run time and (b) useful
 throughput of the three kernels; the tuned kernel on one CPU core is shown for scale.
 ``Useful'' counts $2(d+d_v)$ operations per allowed pair for every kernel, although
-K0 computes each dot product twice. A GPU run warms up with one untimed repetition.}
+K0 computes each dot product twice. A GPU run warms up with one untimed repetition.
+\emph{Result:} tiling through shared memory (K1) is \n{gpu.k1.over.k0} times faster than
+the direct port (K0) at $N=\n{gpu.N.common.h}$, and fusing the passes (K2) gains a
+further \n{gpu.k2.over.k1.small} to \n{gpu.k2.over.k1.big} times.}
 \label{fig:gpuladder}
 \end{figure}
 
@@ -152,7 +158,12 @@ showed: each rank saw exactly the one device that the scheduler had allocated.
 \figureifexists{gpu_ring.pdf}
 \caption{Two A40 GPUs, fused kernel K2, $d=d_v=64$, one head, no mask: efficiency
 $T_1/(2T_2)$ against rows per GPU, where $T_1$ is the time of one GPU measured in
-the same job. Markers: median of three repetitions; bars: their range.}
+the same job. Markers: median of three repetitions; bars: their range.
+\emph{Result:} for $N\ge16{,}384$ the overlapped schedule keeps an efficiency of
+\n{gpu2.one.E.overlap.min} to \n{gpu2.one.E.overlap.max} in one node and
+\n{gpu2.two.E.overlap.min} to \n{gpu2.two.E.overlap.max} across two; for small
+blocks the exchange takes over, and across nodes two GPUs are then slower than
+one.}
 \label{fig:gpuring}
 \end{figure}
 
@@ -172,7 +183,9 @@ granularity term in $E_0$.
 
 The exchange becomes visible where \cref{sec:model} says it should, at few rows
 per GPU and without overlap. Carrying the fitted CPU constant over to the GPU's
-compute rate (\n{gpu.vs.loadedcore} times a loaded core) gives
+compute rate (\n{gpu.vs.loadedcore} times the rate $F$ of a loaded core in the
+model, measured with the control at $N=65{,}536$; the \n{gpu.equiv.cores} cores of
+\cref{sec:gpu} compare run times at $N=131{,}072$) gives
 $c^*\approx\n{gpu.cstar.pred}$ rows, hence an efficiency of \n{gpu.pred.E.c2048} at
 2{,}048 rows per GPU if nothing overlapped. The blocking schedules measure
 \n{gpu2.one.E.aware.blocking.N4096} (CUDA-aware) and

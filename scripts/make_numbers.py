@@ -314,7 +314,25 @@ def strong():
         put("nodes.count", str(len(per_host)))
         every = [x for v in per_host.values() for x in v]
         put("nodes.rank.spread.pct", 100 * (max(every) / min(every) - 1), "{:.1f}")
-
+    # what the timed phase leaves out: the set-up, which for the one-sided pull creates the MPI window
+    setup = {}
+    for r in io.strong_rows():
+        if r["impl"] != "S1":
+            setup.setdefault((r["impl"], int(r["ranks"])), []).append(float(r["t_setup_max"]))
+    for P in (8, 72, 288):
+        s = setup.get(("rma_get", P))
+        if s:
+            put(f"setup.rma_get.P{P}.min", min(s)); put(f"setup.rma_get.P{P}.max", max(s))
+    rings = [x for (impl, _), v in setup.items() if impl in ("ring", "overlap") for x in v]
+    if rings:
+        put("setup.ring.max.ms", 1e3 * max(rings), "{:.1f}")
+    for n, tag, P in ((small, "small", 72), (big, "big", 288)):
+        pull = table.get(("rma_get", n, P))
+        s = [float(r["t_setup_max"]) for r in io.strong_rows() if r["impl"] == "rma_get" and int(r["N"]) == n and int(r["ranks"]) == P]
+        if pull and s:
+            put(f"setup.rma_get.timed.{tag}.{P}", seconds(pull["time"]))
+            put(f"setup.rma_get.{tag}.{P}", max(s))
+            put(f"setup.rma_get.over.timed.{tag}.{P}", max(s) / pull["time"], "{:.0f}" if max(s) / pull["time"] >= 10 else "{:.1f}")
 
     both = [(io.serial_time(n, 1), io.serial_time(n, 10 ** 6)) for n in sizes]
     if all(a and b for a, b in both) and any(a != b for a, b in both):
@@ -611,6 +629,10 @@ def smallc():
         put(f"smallc.{tag}.cmin", str(cs[0])); put(f"smallc.{tag}.cmax", thousands(cs[-1]))
         if tag == "thin":
             put("smallc.ranks", str(max(int(k[2]) for k in by)))
+            # set-up of the one-sided push (its window), outside the timed phase
+            push = [float(r["t_setup_max"]) for r in io.read(run / name) if r["impl"] == "rma_put"]
+            if push:
+                put("setup.rma_put.P288", statistics.median(push))
     order = {}
     for name in ("staggered", "ascending"):      # results_io.read decodes the driver's enum value
         reps = [r for r in io.passed(io.read(run / "comm-order.csv")) if r["fetch_order"] == name]
