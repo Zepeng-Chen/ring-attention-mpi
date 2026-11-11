@@ -6,6 +6,7 @@
 #   tests/analyze_test.py         the window statistics against an independent oracle
 #   tests/hpc_scripts_test.sh     the job-script logic with mocked scheduler commands
 #   tests/cli_test.sh             the option parsing of the benchmark driver
+#   attn_ringbench                a short run of the ring-exchange microbenchmark (it checks its payload)
 # The build is the main build of the experiments (512-bit vectors preferred), so a
 # later experiment job of the same source tag reuses it.
 source "$ATTN_SRC/scripts/hpc/jobs/common.sh"
@@ -29,5 +30,8 @@ step scripts scripts-test.log bash "$ATTN_SRC/tests/hpc_scripts_test.sh"
 export OMP_NUM_THREADS=1
 step cli cli-test.log bash "$ATTN_SRC/tests/cli_test.sh" \
     mpirun "${MPI_LAUNCH[@]}" -np 1 --bind-to none "${MPI_ENV[@]}" "$BUILD/attn_bench"
+# The ring-exchange microbenchmark checks that every block arrives where it should.
+step ringbench ringbench-test.log mpirun "${MPI_LAUNCH[@]}" -np 4 --bind-to none "${MPI_ENV[@]}" "$BUILD/attn_ringbench" \
+    --rows 16,128,1000 --budget 0.05
 cat unit-tests.csv
 exit "$status"

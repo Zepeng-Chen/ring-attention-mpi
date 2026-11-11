@@ -35,7 +35,9 @@ among devices. Two designs are in use.
 \item \textbf{Ring Attention}~\cite{ring} gives each device one block of the
 sequence. A device keeps its queries and lets the key/value blocks of all devices
 pass by, one per step, around a ring; the online softmax absorbs them in whatever
-order they arrive. The context length that can be handled grows with the number of
+order they arrive. (Circulating keys and values between GPUs in a ring had been
+used before, under the name ring self-attention, by the sequence-parallelism
+system of Li et al.~\cite{seqpar}.) The context length that can be handled grows with the number of
 devices. Two refinements matter for this report. With a causal mask the devices
 holding late tokens have far more work than those holding early ones; Striped
 Attention~\cite{striped} removes the imbalance by assigning tokens to devices in

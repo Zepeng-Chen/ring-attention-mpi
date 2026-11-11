@@ -26,7 +26,10 @@ too cheap for fewer ranks to pay off, and the threaded kernel stays within that
 margin of separate processes even as a single rank spanning both sockets: the
 query tiles are independent, so threads share no state.
 On four nodes fewer and larger ranks help a little. With 288 single-thread ranks
-the run takes \n{hybrid.thin.time.288}\,s; the best split measured,
+the run takes \n{hybrid.thin.time.288}\,s in this suite (the strong-scaling suite
+of the same job measured \n{strong.T.big.288}\,s for the same configuration,
+\cref{tab:strong}; the two differ by less than the protocol resolves); the best
+split measured,
 \n{hybrid.best.ranks.288} ranks of \n{hybrid.best.threads.288} threads, takes
 \n{hybrid.best.time.288}\,s (\n{hybrid.gain.pct.288}\% less), a speedup of
 \n{hybrid.speedup.288} over the serial kernel and the best result of this report
@@ -93,9 +96,12 @@ the decisive step. K2 is a further \n{gpu.k2.over.k1.small} to
 reaches \n{gpu.k2.max}\,TFLOP/s. It computes $N=\n{gpu.k2.Nmax.h}$, that is
 $\n{gpu.k2.pairs}\times10^{10}$ pairs, in \n{gpu.k2.Tmax}\,s without ever storing a
 score outside the chip. These are the rates of this single-precision
-implementation under this way of counting; I did not profile the kernels
-(occupancy, registers, memory throughput), so they say what was reached, not what
-limits it or how far the device could go.
+implementation under this way of counting. They are \n{gpu.peakpct}\% of the
+37.4\,TFLOP/s that the vendor states as the card's single-precision
+peak~\cite{a40}, where the CPU kernel reaches \n{serial.peakpct}\% of its core's
+peak: the GPU kernels are the less tuned of the two. I did not profile them
+(occupancy, registers, memory throughput), so the numbers say what was reached,
+not what limits it or how far the device could go.
 
 \paragraph{The GPU against the CPU.} At $N=131{,}072$ one A40 with K2 needs
 \n{gpu.k2.T131k}\,s. One tuned CPU core needs \n{strong.TS.big}\,s, a factor of
@@ -104,13 +110,18 @@ overlapped ring. For this shape and precision, and for these two hand-written
 implementations, one GPU therefore does the work of about \n{gpu.equiv.cores} cores
 of a fully loaded node. The comparison is only meaningful because the CPU baseline
 was tuned first: against the basic kernel the same GPU would have looked
-\n{serial.speedup.tuned} times better.
+\n{serial.speedup.tuned} times better. It is also lopsided the other way, since the
+GPU kernel is further from its hardware limit than the CPU kernel; a better GPU
+kernel would raise the equivalent core count and, by the second prediction of
+\cref{sec:model}, make the exchange between GPUs matter at larger shards than
+measured in \cref{sec:gpuring}.
 
 \paragraph{Masks and real tensors.} With a causal mask K2 needs
 \n{gpu.causal.k2.N65536} of its unmasked time at $N=65{,}536$, because key tiles
 that lie in the future of a block of queries are skipped before they are loaded; K1
-needs \n{gpu.causal.k1.N65536}, because it computes every score and masks
-afterwards. On the real tensors of \cref{sec:real} ($N=32{,}768$, 14 query heads,
+needs \n{gpu.causal.k1.N65536}: it skips the dot products of masked pairs, but it
+still loads every tile, writes the whole block of scores and passes over it twice
+more. On the real tensors of \cref{sec:real} ($N=32{,}768$, 14 query heads,
 causal) K2 takes \n{gpu.real.T}\,s per layer and agrees with the double-precision
 reference (\cref{tab:v7}).
 

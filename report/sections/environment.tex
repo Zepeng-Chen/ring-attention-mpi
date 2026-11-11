@@ -1,4 +1,4 @@
-\begin{table}[h]
+\begin{table}[!ht]
 \centering\small
 \begin{tabularx}{\textwidth}{@{}l Y@{}}
 \toprule
@@ -15,7 +15,7 @@ Tile sizes & $B_q=\n{tiles.used.bq}$ query rows, $B_k=\n{tiles.used.bk}$ keys (\
 Binding & one core per rank (\code{--map-by slot:PE=$T$ --bind-to core}); OpenMP threads pinned to cores (\code{OMP\_PLACES=cores}, \code{OMP\_PROC\_BIND=close}); ranks fill socket 0, then socket 1, then the next node\\
 Protocol, CPU timings & untimed warm-up of at least one repetition and at least five seconds, then three measured repetitions in a row; time of a repetition = maximum over ranks; reported value = median of the three; each repetition validated on sampled rows\\
 Protocol, GPU timings & one untimed warm-up repetition (no minimum time), then three measured repetitions, each validated on sampled rows; the time of a repetition includes the upload of the first block and the download of the result\\
-Other protocols & peak memory: one run per configuration, no warm-up, no validation copy. Clock ramp: 400 consecutive repetitions without warm-up. Hardware counters (\cref{tab:align}): fixed work under \code{perf stat}, no validation. Network microbenchmark: its own repetition scheme. Unit tests: every row compared\\
+Other protocols & peak memory: one run per configuration, no warm-up, no validation copy. Clock ramp: 400 consecutive repetitions without warm-up. Hardware counters: fixed work under \code{perf stat} (\cref{tab:align}, without validation; \cref{fig:hardware}b,c, a fixed number of validated repetitions per rank count). Network and ring-exchange microbenchmarks: their own repetition schemes. Unit tests: every row compared\\
 Real data & Qwen2.5-0.5B (Hugging Face), PyTorch 2.5.0 and transformers 4.47.1 for the extraction only; text: Project Gutenberg \#2600. The SHA-256 digests of the model files, the text and the extracted tensors are kept with the results\\
 \bottomrule
 \end{tabularx}
@@ -25,8 +25,9 @@ Real data & Qwen2.5-0.5B (Hugging Face), PyTorch 2.5.0 and transformers 4.47.1 f
 
 \begin{sloppypar}
 \paragraph{Source code.} The code of this project, with a README that explains how
-to build and run it, is in the public repository
-\url{https://github.com/Zepeng-Chen/ring-attention-mpi}. No BLAS, LAPACK or other
+to build and run it, is in the GitHub repository
+\url{https://github.com/Zepeng-Chen/ring-attention-mpi}, which is public from the
+submission deadline on. No BLAS, LAPACK or other
 numerical library is used; the attention kernels, the MPI strategies and the CUDA
 kernels are written out in \code{src/} and \code{include/attn/}.
 

@@ -13,7 +13,11 @@ in $[-1,1)$), and any NaN or infinity is a failure. Every timed scaling run of t
 report repeats the comparison on evenly spaced sample rows, each against all $N$
 keys (64 rows in the CPU runs and 32 in the GPU runs unless stated), and checks all
 outputs for non-finite values; a failed check makes the program exit with an error
-and marks the result line. The runs that measure something other than the attention
+and marks the result line. The sampled rows include the first and the last row of
+the sequence but are not placed on shard boundaries. Because every sampled row is
+compared against \emph{all} keys, a wrong key or value at any shard boundary would
+show in each of them; the boundaries on the query side (uneven and empty shards,
+partial tiles) are what the unit tests check on every row. The runs that measure something other than the attention
 time carry no comparison: peak memory, the hardware-counter runs of
 \cref{tab:align}, and the network microbenchmark.
 

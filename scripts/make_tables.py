@@ -82,17 +82,20 @@ def table_v7():
     for (purpose,), v in by.items():
         n, layer = purpose.split("-")[1][1:], purpose.split("-")[2][5:]
         r = v["row"]
-        scale = float(r["ref_abs_max"])
+        # One scale for the whole row: the largest component of the model's own output over all rows and heads.
+        scale = float(r["oref_abs_max"])
         g = gpu_by.get((n, f"final-real-layer{layer}"))
-        gpu_err = f"${sci(float(g['row']['max_abs_err']) / scale)}$" if g else "--"
+        gpu_err = f"${sci(max(float(x['max_abs_err']) for x in g['rows']) / scale)}$" if g else "--"
         ok = all(x["validation"] == "passed" for x in v["rows"]) and (not g or all(x["validation"] == "passed" for x in g["rows"]))
-        lines.append(f"{int(n):,} & {int(layer)} & {scale:.2f} & ${sci(float(r['max_abs_err']) / scale)}$ & "
-                     f"${sci(float(r['oref_max_abs_err']) / float(r['oref_abs_max']))}$ & {gpu_err} & {'pass' if ok else 'FAIL'}\\\\".replace(",", "{,}"))
+        lines.append(f"{int(n):,} & {int(layer)} & {scale:.2f} & ${sci(max(float(x['max_abs_err']) for x in v['rows']) / scale)}$ & "
+                     f"${sci(max(float(x['oref_max_abs_err']) for x in v['rows']) / scale)}$ & {gpu_err} & {'pass' if ok else 'FAIL'}\\\\".replace(",", "{,}"))
     lines += [r"\bottomrule", r"\end{tabular}",
-              r"\caption{Real tensors of Qwen2.5-0.5B (14 query heads, 2 key/value heads, causal mask). Largest absolute "
-              r"difference divided by the largest output magnitude $\max|O|$. ``fp64'': my double-precision reference on 512 sampled "
-              r"rows (CPU) or 64 rows (GPU); ``PyTorch'': the model's own attention output, all rows. CPU: 8 ranks $\times$ 9 threads, "
-              r"overlapped ring, zigzag partition.}", r"\label{tab:v7}", r"\end{table}"]
+              r"\caption{Real tensors of Qwen2.5-0.5B (14 query heads, 2 key/value heads, causal mask). Every entry is a largest "
+              r"absolute difference divided by $\max|O|$, the largest component of the model's own attention output over all rows "
+              r"and heads. ``fp64'': against my double-precision reference on 512 sampled rows (CPU) or 64 sampled rows (GPU); "
+              r"``PyTorch'': against the model's output on all rows. CPU: 8 ranks $\times$ 9 threads, overlapped ring, zigzag "
+              r"partition. ``pass'' refers to the automatic check of the runs: difference to fp64 at most $10^{-3}$ times the largest "
+              r"reference component of the sampled rows.}", r"\label{tab:v7}", r"\end{table}"]
     (GEN / "table_v7.tex").write_text("\n".join(lines) + "\n")
     return True
 

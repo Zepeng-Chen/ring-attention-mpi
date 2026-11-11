@@ -28,7 +28,10 @@ Hard rules
      are unaffected is checked on those records;
   8. the unit tests ran on the cluster on exactly the staged files of the submitted
      tree, and every one passed;
-  9. the audit is never run on a preview of unfinished jobs (ATTN_PREVIEW).
+  9. the audit is never run on a preview of unfinished jobs (ATTN_PREVIEW);
+ 10. the failure log of a selected run lists only declared failures, and every result
+     file still holds the number of configurations pinned when the run was selected
+     (audit_results.py --pin).
 Soft findings (recorded, not fatal): configurations whose three repetitions
 differ by more than 10 %.
 """
@@ -52,6 +55,9 @@ DECLARED_FAILURES = {
     "serial-error.csv": "stress study: queries multiplied by 50 and every row compared with fp64; "
                         "the single-precision scores exceed the fixed 1e-5 tolerance for N >= 4096 (reported as failures)",
 }
+# A job records every invocation that returned an error in failures.txt and carries on; its
+# exit status does not show them. A selected run may list only these invocations there.
+DECLARED_FAILURE_LINES = (r"^FAILED: serial-error .* --alpha 50$",)
 # Files whose rows deliberately do not follow the timing protocol, and why.
 PROTOCOL_EXCEPTIONS = {
     "memory.csv": "peak-memory runs: one repetition, no warm-up, no validation copy",
@@ -59,6 +65,7 @@ PROTOCOL_EXCEPTIONS = {
     "align-perf.csv": "fixed amount of work under perf stat: one warm-up and three repetitions, no time-based warm-up",
     "netbench.csv": "microbenchmark with its own repetition scheme", "netbench-node.csv": "microbenchmark with its own repetition scheme",
     "gpu-validation.csv": "GPU unit tests: every query row compared with fp64, two repetitions without warm-up; correctness only",
+    "clock.csv": "fixed work under perf stat: fixed numbers of warm-up and measured repetitions per rank count, no time-based warm-up",
 }
 # Files that hold several rounds of the same configurations on purpose.
 REPEATED_ROUNDS = {
@@ -73,6 +80,16 @@ POST_MEASUREMENT_CHANGES = {
         "condition": "every field finite, every output norm positive and every window probability at least 1e-280: "
                      "the changed branches are then not reached and the arithmetic of the other branch is unchanged",
         "check": "analysis",
+    },
+    "CMakeLists.txt": {
+        "change": "a target for the ring-exchange microbenchmark (apps/attn_ringbench.cpp) was added",
+        "condition": "removing the three added lines restores the measured file byte for byte; no existing target is touched",
+        "check": None,
+        "revert": [
+            ("    add_executable(attn_ringbench apps/attn_ringbench.cpp)\n"
+             "    target_link_libraries(attn_ringbench PRIVATE MPI::MPI_CXX)\n"
+             "    target_compile_options(attn_ringbench PRIVATE -Wall -Wextra -Wpedantic)\n", ""),
+        ],
     },
     "apps/attn_bench.cpp": {
         "change": "the options --warmup-seconds and --tolerance-scale reject infinite values",
@@ -193,6 +210,12 @@ def audit():
             problems.append(f"{run}: exit status {status}")
         if (path / "SUPERSEDED").exists():
             problems.append(f"{run}: selected although superseded")
+        logged = [l for l in (path / "failures.txt").read_text().splitlines() if l.strip()] if (path / "failures.txt").exists() else []
+        undeclared = [l for l in logged if not any(re.search(pattern, l) for pattern in DECLARED_FAILURE_LINES)]
+        entry["logged_failures"] = len(logged)
+        if undeclared:
+            problems.append(f"{run}: failures.txt lists {len(undeclared)} invocation(s) that failed and are not declared, "
+                            f"first: {undeclared[0][:120]}")
         env = (path / "environment.txt").read_text(errors="replace") if (path / "environment.txt").exists() else ""
         entry["job"] = (re.search(r"job=(\d+)", env) or [None, None])[1]
         entry["source_tag"] = (re.search(r"tag=(\w+)", env) or [None, None])[1]
@@ -267,6 +290,18 @@ def audit():
                             spread.append({"run": run, "file": name, "configuration": dict(zip(keys, key)), "relative_spread": round(rel, 3),
                                            "median_seconds": statistics.median(values)})
             files[name] = info
+        # The configurations of every file were counted when the run was selected (--pin); a file or a
+        # configuration that disappears afterwards is noticed here.
+        pinned = selection.get("configurations", {}).get(run)
+        counted = {name: info.get("configurations", info["rows"]) for name, info in files.items()}
+        entry["configurations"] = counted
+        if "--pin" not in sys.argv:
+            if pinned is None:
+                problems.append(f"{run}: no pinned list of result files and configurations (run audit_results.py --pin)")
+            elif pinned != counted:
+                changed = sorted(n for n in set(pinned) | set(counted) if pinned.get(n) != counted.get(n))
+                problems.append(f"{run}: result files or configurations differ from the pinned list: "
+                                + ", ".join(f"{n} {pinned.get(n)} -> {counted.get(n)}" for n in changed[:6]))
         if entry["kind"] == "tests":
             outcome = {r["test"]: r["result"] for r in io.read(path / "unit-tests.csv")}
             entry["tests"] = outcome
@@ -275,11 +310,17 @@ def audit():
             shot = snapshot(entry["source_tag"]) or {}
             differing = sorted(name for name, digest in shot.items()
                                if not (ROOT / name).exists() or sha256(ROOT / name) != digest)
-            entry["tested_source_equals_submitted_tree"] = bool(shot) and not differing
+            # The tag is a hash of every staged file, so equal tags mean the same files, none added or removed.
+            import subprocess
+            local_tag = subprocess.run(["bash", str(ROOT / "scripts" / "hpc" / "cluster.sh"), "tag", "-"],
+                                       capture_output=True, text=True).stdout.strip()
+            entry["submitted_tree_tag"] = local_tag
+            entry["tested_source_equals_submitted_tree"] = bool(shot) and not differing and local_tag == entry["source_tag"]
             if not shot:
                 problems.append(f"{run}: no file hashes recorded for the tested source snapshot {entry['source_tag']}")
-            if differing:
-                problems.append(f"{run}: the unit tests ran on a source that differs from the submitted tree in {differing}")
+            if differing or local_tag != entry["source_tag"]:
+                problems.append(f"{run}: the unit tests ran on source {entry['source_tag']}, the submitted tree is {local_tag}"
+                                + (f" (files that differ: {differing})" if differing else " (files were added or removed)"))
         entry["files"] = files
         entry["validated"] = sum(f.get("validated", 0) for f in files.values())
         entry["failed"] = sum(f.get("failed", 0) for f in files.values())
@@ -297,38 +338,47 @@ def audit():
         entry = OrderedDict(snapshots=tags, files=OrderedDict())
         for name in required:
             hashes = {t: shots[t].get(name) for t in tags}
+            distinct = set(hashes.values())
             local = sha256(ROOT / name) if (ROOT / name).exists() else None
-            entry["files"][name] = {"sha256": sorted(set(hashes.values())), "identical_across_snapshots": len(set(hashes.values())) == 1,
-                                    "submitted_tree_identical": local in set(hashes.values())}
-            if len(set(hashes.values())) != 1:
+            declared = POST_MEASUREMENT_CHANGES.get(name)
+            entry["files"][name] = {"sha256": sorted(distinct), "identical_across_snapshots": len(distinct) == 1,
+                                    "submitted_tree_identical": distinct == {local}}
+            if distinct == {local}:
+                continue
+            if not declared:
+                if len(distinct) != 1:
+                    problems.append(f"{kind}: {name} differs between source snapshots {tags}")
+                problems.append(f"{kind}: {name} in the submitted tree differs from the measured source")
+                continue
+            # A declared change: snapshots may hold the file as it was measured or as it is submitted.
+            record = OrderedDict(change=declared["change"], condition=declared["condition"])
+            allowed = {local}
+            if "revert" in declared:
+                text = (ROOT / name).read_text()
+                for submitted, measured in declared["revert"]:
+                    if text.count(submitted) != 1:
+                        problems.append(f"{kind}: {name}: a declared change is not in the submitted file exactly once")
+                    text = text.replace(submitted, measured)
+                restored = hashlib.sha256(text.encode()).hexdigest()
+                allowed.add(restored)
+                record["reverting_restores_measured_file"] = bool(distinct - {local}) and distinct - {local} == {restored}
+                if not distinct <= allowed:
+                    problems.append(f"{kind}: {name} differs from the measured source by more than the declared changes")
+            elif len(distinct) != 1:
                 problems.append(f"{kind}: {name} differs between source snapshots {tags}")
-            if local not in set(hashes.values()):
-                declared = POST_MEASUREMENT_CHANGES.get(name)
-                if not declared:
-                    problems.append(f"{kind}: {name} in the submitted tree differs from the measured source")
-                    continue
-                record = OrderedDict(change=declared["change"], condition=declared["condition"])
-                if "revert" in declared:
-                    text = (ROOT / name).read_text()
-                    for submitted, measured in declared["revert"]:
-                        if text.count(submitted) != 1:
-                            problems.append(f"{kind}: {name}: a declared change is not in the submitted file exactly once")
-                        text = text.replace(submitted, measured)
-                    restored = hashlib.sha256(text.encode()).hexdigest()
-                    record["reverting_restores_measured_file"] = restored in set(hashes.values())
-                    if restored not in set(hashes.values()):
-                        problems.append(f"{kind}: {name} differs from the measured source by more than the declared changes")
+            record["snapshots_with_the_measured_version"] = sorted(t for t, h in hashes.items() if h != local)
+            if declared["check"]:
                 checker = analysis_records if declared["check"] == "analysis" else recorded_commands
                 checks = OrderedDict()
                 for run, e in report.items():
-                    if e["kind"] == kind:
+                    if e["kind"] == kind and hashes.get(e["source_tag"]) != local:
                         ok, stats = checker(io.RUNS / run)
                         checks[run] = dict(stats, condition_holds=ok)
                         if not ok:
                             problems.append(f"{kind}: {name} was changed after {run} was computed and the stored records "
                                             f"do not meet the condition under which they are unaffected: {stats}")
                 record["records_checked"] = checks
-                entry["files"][name]["changed_after_measurement"] = record
+            entry["files"][name]["changed_after_measurement"] = record
         sources[kind] = entry
     # the GPU driver differs between snapshots in logging and option checks only; record which version each job used
     sources.setdefault("gpu", OrderedDict())["driver_by_snapshot"] = {
@@ -413,8 +463,21 @@ def table(result):
     (GEN / "table_provenance.tex").write_text("\n".join(lines) + "\n")
 
 
+def pin(result):
+    """Store the number of configurations of every result file of the selected runs in the selection."""
+    selection = json.loads(io.SELECTION.read_text())
+    selection["configurations"] = OrderedDict((run, e["configurations"]) for run, e in result["runs"].items())
+    selection["configurations_note"] = ("Timed files: number of distinct configurations (each with its repetitions); other files: "
+                                        "number of rows. Counted from the retrieved files when the runs were selected, after their "
+                                        "failure logs had been checked; the audit compares every later state with these counts.")
+    io.SELECTION.write_text(json.dumps(selection, indent=1, ensure_ascii=False) + "\n")
+
+
 if __name__ == "__main__":
     outcome = audit()
+    if "--pin" in sys.argv:
+        pin(outcome)
+        print("pinned the configurations of", len(outcome["runs"]), "runs in", io.SELECTION.name)
     table(outcome)
     print(f"audit: {'PASSED' if outcome['passed'] else 'FAILED'}; {outcome['selected_run_directories']} selected runs, "
           f"{outcome['excluded_run_directories']} excluded; {outcome['repetitions_validated']} repetitions validated, "

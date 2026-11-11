@@ -19,6 +19,7 @@ this file explains how to build and run the code.
 | `apps/attn_bench.cpp` | CPU driver: serial baselines and every MPI(+OpenMP) variant, validation, CSV output |
 | `apps/attn_gpu_bench.cpp` | MPI+CUDA driver: one GPU per rank, host-staged or CUDA-aware ring |
 | `apps/attn_netbench.cpp` | MPI microbenchmarks: latency, bandwidth, progress while the peer computes |
+| `apps/attn_ringbench.cpp` | one step of the blocking ring with nothing computed, all ranks exchanging at once |
 | `apps/attn_analyze.cpp` | statistics of real attention rows (entropy, locality, window-approximation error) |
 | `tests/` | correctness tests: `core_tests.cpp` and `mpi_tests.cpp` (`ctest`), `analyze_test.py` (the analysis program against an independent recomputation), `cli_test.sh` (option parsing of the benchmark driver), `hpc_scripts_test.sh` (job-script logic with mocked scheduler commands) |
 | `scripts/extract_qkv.py` | dumps real Q/K/V and the reference output of a language model (data preparation only) |
@@ -157,7 +158,9 @@ scripts/build_report.sh                                                  # figur
 
 `experiment.pbs` runs one or more suites (`ATTN_SUITE=a:b:c`): `serial`,
 `strong`, `weak`, `hybrid`, `comm`, `causal`, `memory`, `gqa`, `hardware`,
-`model`, `align`, `extras`, `tune`, `realdata`, `fatcheck`. `gpu_experiment.pbs`
+`model`, `align`, `extras`, `tune`, `realdata`, `fatcheck`, `clock` (the control
+under `perf stat`: clock and work per cycle), `ringx` (ring exchange without
+computation). `gpu_experiment.pbs`
 has the suites `ladder`, `ring` (two GPUs, in one node or one per node as
 allocated) and `ringcheck`; `unit_tests.pbs` runs the tests; `real_data.pbs` runs
 the real-tensor validation,
@@ -194,7 +197,10 @@ hardware and of the inputs are typed). One chain produces it:
    its records were computed is declared, and the condition under which those
    records are unaffected is checked (`attn_bench`: two option checks, undoing
    them restores the measured file and no recorded command is affected;
-   `attn_analyze`: two edge cases that do not occur in the stored records). It writes `results/audit.json` and the
+   `CMakeLists.txt`: one added target; `attn_analyze`: two edge cases that do
+   not occur in the stored records); the failure log of a run lists only the
+   declared stress failures, and every result file still holds the number of
+   configurations pinned when the run was selected (`audit_results.py --pin`). It writes `results/audit.json` and the
    provenance table of the appendix.
 3. `scripts/make_figures.py`, `scripts/make_tables.py` and
    `scripts/make_numbers.py` read only the selected runs through

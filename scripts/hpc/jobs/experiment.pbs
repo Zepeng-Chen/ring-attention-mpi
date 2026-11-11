@@ -16,6 +16,8 @@
 #   memprobe     what the kernel reports for one rank's memory                    (1 node)
 #   realdata     real_data.pbs (parts ATTN_REAL_PARTS) run inside this job        (1 node)
 #   fatcheck     repeat of the wide-rank point that was out of line, in two rounds (4 nodes)
+#   clock        the control under perf stat: clock and work per cycle of every rank   (1 node)
+#   ringx        one ring step without computation, all ranks exchanging at once       (1 node)
 # Cost: credits are debited for requested walltime x cores when a job starts. Request
 # 1.3 x the measured duration, keep one-node work in one-node jobs, and let a
 # four-node job run only what needs it (ATTN_MIN_CORES=73, ATTN_RANKS=72:144:288,
@@ -361,6 +363,43 @@ fatcheck)
             done
             bench "fatcheck-poll-r$round" "$ranks" 18 --impl overlap --poll-tiles 18 --N "$n" --validate 64
         done
+    done
+    ;;
+clock)
+    # Splits the efficiency of the control M0 into two measured factors. Every rank runs
+    # under `perf stat`: cycles / CPU time is the clock the rank actually ran at, averaged
+    # over its whole run, and pairs / cycles is the work one cycle did. The work is fixed
+    # (a number of warm-up and measured repetitions, no time-based warm-up) and lasts about
+    # 45 s for every rank count, so that the first seconds at the base clock weigh little.
+    command -v perf > /dev/null || { echo "perf is not available on this node"; exit 6; }
+    mkdir -p "$ATTN_RUN/clock"
+    perf_run() {   # perf_run LABEL RANKS MAPPING WARMUPS REPETITIONS
+        export OMP_NUM_THREADS=1
+        mpirun "${MPI_LAUNCH[@]}" -np "$2" --map-by "$3" --bind-to core "${MPI_ENV[@]}" \
+            sh -c 'exec perf stat -x, -o "$0.rank$OMPI_COMM_WORLD_RANK.txt" -e cycles,instructions,task-clock "$@"' "$ATTN_RUN/clock/perf-$1" \
+            "$BENCH" --cluster "$ATTN_CLUSTER" --purpose "final-clock-$1" --warmup "$4" --warmup-seconds 0 --reps "$5" \
+            --block-q "$BQ" --block-k "$BK" --threads 1 --impl local --N 65536 --validate 64 --csv "$ATTN_RUN/clock.csv" < /dev/null \
+            || echo "FAILED clock $1" | tee -a failures.txt
+    }
+    perf_run packed-P1   1 slot:PE=1   1   2
+    perf_run packed-P2   2 slot:PE=1   1   4
+    perf_run packed-P4   4 slot:PE=1   2   8
+    perf_run packed-P9   9 slot:PE=1   3  20
+    perf_run packed-P18 18 slot:PE=1   6  40
+    perf_run packed-P36 36 slot:PE=1  10  70
+    perf_run packed-P72 72 slot:PE=1  20 130
+    # 36 ranks as 18 per socket: the same shards as packed-P36 at a higher clock.
+    perf_run spread-P36 36 ppr:18:package:PE=1 10 70
+    ;;
+ringx)
+    # One step of the blocking ring with nothing computed in between, for 2 to 72 ranks of
+    # one node: what the exchange itself costs when every rank sends and receives at once.
+    for P in 2 8 36 72; do
+        (( P <= SLOTS )) || continue
+        export OMP_NUM_THREADS=1
+        mpirun "${MPI_LAUNCH[@]}" -np "$P" --map-by slot:PE=1 --bind-to core "${MPI_ENV[@]}" "$BUILD/attn_ringbench" \
+            --cluster "$ATTN_CLUSTER" --rows 16,32,64,128,256,512,1024,2048,4096 --budget 0.5 --csv "$ATTN_RUN/ring-exchange.csv" < /dev/null \
+            || echo "FAILED ring exchange P=$P" | tee -a failures.txt
     done
     ;;
 realdata)

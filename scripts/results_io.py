@@ -243,3 +243,52 @@ def passed(rows):
     performance file this filter removes nothing: no configuration is represented
     by a subset of its repetitions."""
     return [r for r in rows if r.get("validation") != "failed"]
+
+
+def clock_table():
+    """label -> clock and work per cycle of the control M0, from the perf records of suite clock.
+    label is "packed-P<ranks>" or "spread-P<ranks>". Every rank ran under `perf stat`:
+      ghz              cycles / CPU time, summed over the ranks (the clock they ran at, averaged over the run)
+      cycles_per_pair  cycles / query-key pairs of all repetitions, warm-up included
+      ipc              instructions / cycles
+      time             median time of a measured repetition (the same runs)."""
+    import re
+    run = latest("e8-clock", "clock.csv")
+    if not run:
+        return {}
+    by = summarise(read(run / "clock.csv"), ["purpose"])
+    table = OrderedDict()
+    for (purpose,), v in by.items():
+        label = purpose.replace("final-clock-", "")
+        row = v["row"]
+        warm = int(re.search(r"--warmup (\d+)", row["command"]).group(1))
+        reps = int(re.search(r"--reps (\d+)", row["command"]).group(1))
+        if v["n"] != reps:
+            raise ValueError(f"{label}: {v['n']} measured repetitions recorded, {reps} requested")
+        ranks, n = int(row["ranks"]), int(row["N"])
+        cycles = instructions = seconds = 0.0
+        files = sorted((run / "clock").glob(f"perf-{label}.rank*.txt"))
+        if len(files) != ranks:
+            raise ValueError(f"{label}: {len(files)} perf records for {ranks} ranks")
+        for path in files:
+            for line in read_text(path).splitlines():
+                parts = line.split(",")
+                if len(parts) < 3 or line.startswith("#"):
+                    continue
+                if parts[2].startswith("cycles"):
+                    cycles += float(parts[0])
+                elif parts[2].startswith("instructions"):
+                    instructions += float(parts[0])
+                elif parts[2].startswith("task-clock"):
+                    seconds += float(parts[0]) / 1e3
+        pairs = float(warm + reps) * n * n
+        table[label] = {"ranks": ranks, "N": n, "warmups": warm, "repetitions": reps, "ghz": cycles / seconds / 1e9,
+                        "cycles_per_pair": cycles / pairs, "ipc": instructions / cycles, "time": v["median"],
+                        "cpu_seconds": seconds, "node": row.get("cluster", "")}
+    return table
+
+
+def ring_exchange():
+    """(ranks, rows per rank) -> seconds for one ring step without computation (maximum over ranks)."""
+    rows = load("e8-clock", "ring-exchange.csv")
+    return OrderedDict(((int(r["ranks"]), int(r["rows"])), float(r["seconds_per_step_max"])) for r in rows)

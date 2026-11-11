@@ -21,15 +21,19 @@ algorithm: storing every array on a cache-line boundary (a factor of
 \n{align.speedup}) and letting the compiler use the full vector width
 (\n{serial.w512.gain.pct}\%).
 \item \textbf{The machine under load.} Inside one node, for shards of more than a
-few hundred rows, almost all of the loss is already in the control: a core
-delivers \n{hw.eff.72} to \n{strong.Ehw.big.72} of its solo throughput when all 72
-are busy (the value differs a little between nodes), mostly because a full node
-runs at a lower clock. That factor, not communication, is the efficiency of the
-one-node runs with large shards.
+few hundred rows, almost all of the loss is already in the control. Hardware
+counters split it into two factors: the clock, \n{clock.fratio.72} when a socket is
+full, and the work per cycle, which depends on how finely the sequence is cut
+(\n{clock.wratio.36} at 1{,}820 rows per rank, \n{clock.wratio.72} at 910). Their
+product, not communication, is the efficiency of the one-node runs with large
+shards.
 \item \textbf{Communication.} For a given configuration it is governed by the rows
 a rank owns. With single-thread ranks inside a node a two-sided ring loses half its
 speed at about \n{model.cstar.fit} rows per rank, and the fitted form puts the 5\%
-mark near \n{model.c95.fit} rows. Across nodes the overlapped ring stays close to
+mark near \n{model.c95.fit} rows. The constant is what the exchange costs when all
+ranks of the node exchange at once (\n{ringx.cstar} rows from a microbenchmark of
+exactly that), not what a message costs between two ranks of an idle node
+(\n{model.cstar}). Across nodes the overlapped ring stays close to
 the same curve, the blocking ring and the all-gather lose more
 (\n{strong.Ecomm.ring.big.288} and \n{strong.Ecomm.allgather.big.288} instead of
 \n{strong.Ecomm.big.288} at 288 ranks for $N=131{,}072$), and the one-sided variants
@@ -88,7 +92,8 @@ the zigzag partition with a ring. The fastest configuration measured on four
 nodes for $N=131{,}072$ was \n{hybrid.best.ranks.288} ranks of
 \n{hybrid.best.threads.288} threads with the overlapped ring:
 \n{hybrid.best.time.288}\,s, a speedup of \n{hybrid.speedup.288}. Two GPUs do the
-same problem in \n{gpu2.two.T.host.overlap.N131072}\,s. These are choices for this
+same problem in \n{gpu2.one.T.host.overlap.N131072}\,s in one node and
+\n{gpu2.two.T.host.overlap.N131072}\,s across two. These are choices for this
 cluster and these shapes, not rules for other machines.
 
 \paragraph{Limits of the evidence.} All results come from one cluster whose MPI
@@ -97,10 +102,10 @@ peer computes was shown for that installation with a two-rank microbenchmark and
 is consistent with the application runs; it is not a property of MPI, and an
 interconnect with remote memory access in hardware could reverse it. The
 decomposition into $E_0$ and $E_\text{comm}$ is an identity around a control, not a
-separation of causes, and the clock was sampled, not integrated; power was not
-measured. The fitted curve describes single-thread ranks inside one node; its
-constant is \n{model.cstar.ratio} times what the microbenchmark predicted, and
-outside that setting rows per rank are one variable among several. Every
+separation of causes; the split of $E_0$ into clock and work per cycle is measured,
+but why the clock falls (power, temperature) is not. The fitted curve describes
+single-thread ranks inside one node, and outside that setting rows per rank are
+one variable among several. Every
 configuration was measured three times in a row within one job, with one seed, so
 differences of a few per cent are not resolved. The partition is static; the four
 nodes used were equally fast, so its behaviour on unequal nodes was not tested.
@@ -112,6 +117,19 @@ and not decoding with few queries and a long key cache, where the balance of
 computation and communication is different. The real-data conclusions rest on one
 model, one text and three layers.
 
+\paragraph{A design that was not explored.} The all-gather and the ring are the two
+ends of a scale: every rank holds a copy of everything, or no rank holds more than
+two shards. For all-pairs interactions it is known that the range in between is
+useful: if every block is replicated on $r$ ranks, the number of messages falls
+by $r^2$ and their volume by $r$, at $r$ times the memory~\cite{canbody}.
+Attention with the sequence split by position is such an all-pairs problem, as the
+comparison with the kernel matrix of Lecture~8 suggests, so a ring over groups of
+ranks that each hold $r$ shards would trade memory for communication exactly
+where \cref{fig:collapse} says communication hurts, at few rows per rank. I did not
+implement it. Other things left for later are named in the limits above: a
+profile and further tuning of the GPU kernels, more than two GPUs, the backward
+pass, and a network that can move data without the peer's help.
+
 \paragraph{What exact attention showed about the data.} In a real 24-layer model
 at a context of 32{,}768 tokens the three layers examined behave in three ways:
 the first is local, a middle layer has heads that put most of their probability on
@@ -119,6 +137,8 @@ the first token of the sequence, and the last is diffuse. For the windows tested
 sliding window alone therefore changes the output of the middle layer completely,
 keeping a few sink tokens repairs that layer, and even then a 1{,}024-token window
 changes the output of the last layer by a third. These are changes of single
-attention outputs for fixed inputs, not of what the model finally predicts. Exact
-attention is the ground truth that makes such statements possible, and the
-distributed scheme of this report is one way to afford it.
+attention outputs for fixed inputs, not of what the model finally predicts. The
+statistics came from a double-precision analysis of sampled queries; the
+distributed code reproduced the outputs of the same layers (\cref{tab:v7}), which
+is what one would run to obtain the exact output for every query at this length
+and beyond.

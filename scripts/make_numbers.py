@@ -711,6 +711,8 @@ def gpu():
     k0 = {int(k[1]): v for k, v in by.items() if k[0] == "k0"}
     big = max(k2)
     put("gpu.k2.Tmax", seconds(k2[big]["median"])); put("gpu.k2.pairs", f"{big * big / 1e10:.1f}")
+    # against the vendor's single-precision peak of the A40 (37.4 TFLOP/s, datasheet)
+    put("gpu.peakpct", 100 * max(rate(v) for v in k2.values()) / 37.4e12, "{:.0f}")
     common = max(set(k0) & set(k2))
     put("gpu.N.common.h", thousands(common)); put("gpu.k1.over.k0", rate(k1[common]) / rate(k0[common]), "{:.0f}")
     put("gpu.k1.Nmin.h", thousands(min(k1))); put("gpu.k2.Nmin.h", thousands(min(k2)))
@@ -822,14 +824,18 @@ def gpu():
 def real():
     rows = io.load("real-data", "v7.csv")
     if rows:
-        cpu = [float(r["max_abs_err"]) / float(r["ref_abs_max"]) for r in rows]
+        # all differences relative to the largest component of the model's full output (as in the table)
+        cpu = [float(r["max_abs_err"]) / float(r["oref_abs_max"]) for r in rows]
         torch = [float(r["oref_max_abs_err"]) / float(r["oref_abs_max"]) for r in rows if float(r.get("oref_abs_max") or 0) > 0]
         import make_tables as mt
         put("real.err.fp64.max", mt.sci(max(cpu))); put("real.err.torch.max", mt.sci(max(torch)) if torch else None)
         put("real.configs", str(len({r["purpose"] for r in rows})))
-        scales = [float(r["ref_abs_max"]) for r in rows]
-        put("real.scale.min", sig(min(scales))); put("real.scale.max", sig(max(scales)))
         put("real.failed", str(sum(r["validation"] != "passed" for r in rows)))
+        scales = [float(r["oref_abs_max"]) for r in rows]
+        put("real.scale.min", sig(min(scales))); put("real.scale.max", sig(max(scales)))
+        # the automatic check: difference to fp64 at most 1e-3 times the largest reference component of the sampled rows
+        put("real.tol.margin", min(float(r["atol"]) / float(r["max_abs_err"]) for r in rows), "{:.0f}")
+        put("real.valrows", rows[0]["val_rows"])
     variants = io.load("real-data", "v7-variants.csv")
     if variants:
         put("real.variants.runs", str(len({(r["impl"], r["partition"]) for r in variants})))
@@ -898,6 +904,99 @@ def errors():
     put("err.bk.list", ", ".join(thousands(b) for b in bks))
 
 
+def clock():
+    """The control M0 under perf stat: clock and work per cycle (suite clock)."""
+    table = io.clock_table()
+    if not table:
+        return
+    one = table.get("packed-P1")
+    for label, v in table.items():
+        tag = label.replace("packed-P", "").replace("spread-P", "spread")
+        put(f"clock.ghz.{tag}", v["ghz"]); put(f"clock.cpp.{tag}", v["cycles_per_pair"], "{:.1f}"); put(f"clock.ipc.{tag}", v["ipc"])
+        if one:
+            f_ratio, w_ratio = v["ghz"] / one["ghz"], one["cycles_per_pair"] / v["cycles_per_pair"]
+            timed = one["time"] / (v["ranks"] * v["time"])
+            put(f"clock.fratio.{tag}", f_ratio); put(f"clock.wratio.{tag}", w_ratio)
+            put(f"clock.product.{tag}", f_ratio * w_ratio); put(f"clock.timed.{tag}", timed)
+            put(f"clock.wloss.pct.{tag}", 100 * (1 - w_ratio), "{:.0f}"); put(f"clock.floss.pct.{tag}", 100 * (1 - f_ratio), "{:.0f}")
+    if one:
+        put("clock.N.h", thousands(one["N"]))
+        gaps = [abs(v["ghz"] / one["ghz"] * one["cycles_per_pair"] / v["cycles_per_pair"] / (one["time"] / (v["ranks"] * v["time"])) - 1)
+                for v in table.values()]
+        put("clock.product.gap.pct", 100 * max(gaps), "{:.1f}")
+        put("clock.seconds.min", min(v["cpu_seconds"] / v["ranks"] for v in table.values()), "{:.0f}")
+        put("clock.seconds.max", max(v["cpu_seconds"] / v["ranks"] for v in table.values()), "{:.0f}")
+    full = table.get("packed-P72")
+    if one and full:
+        import make_figures as mf
+        data = mf._strong_tables()
+        if data:
+            serial_t, strong = data
+            sizes = sorted(serial_t)
+            for n, tag in ((sizes[0], "small"), (sizes[len(sizes) // 2], "mid"), (sizes[-1], "big")):
+                m0 = strong.get(("local", n, 72))
+                if m0:
+                    # efficiency of the control in the strong-scaling run divided by the clock factor measured here
+                    put(f"clock.implied.w.{tag}", m0["efficiency"] / (full["ghz"] / one["ghz"]))
+    a, b = table.get("packed-P36"), table.get("spread-P36")
+    if a and b:
+        put("clock.spread.wratio", a["cycles_per_pair"] / b["cycles_per_pair"])
+        put("clock.spread.gain.pct", 100 * (a["time"] / b["time"] - 1), "{:.0f}")
+
+
+def ringx():
+    """One ring step without computation (suite ringx) against the model and the measured rings."""
+    import make_figures as mf
+    exchange = io.ring_exchange()
+    params = mf.model_parameters()
+    if not exchange or not params:
+        return
+    ranks = sorted({p for p, _ in exchange})
+    most, least = ranks[-1], ranks[0]
+    put("ringx.ranks.max", str(most)); put("ringx.ranks.min", str(least)); put("ringx.ranks.list", ", ".join(str(r) for r in ranks))
+    for (p, c), t in exchange.items():
+        if c in (16, 128, 512, 4096):
+            put(f"ringx.us.P{p}.c{c}", t * 1e6, "{:.1f}" if t * 1e6 < 100 else "{:.0f}")
+    for c in (16, 128, 512, 4096):
+        if (most, c) in exchange and (least, c) in exchange:
+            put(f"ringx.crowd.c{c}", exchange[(most, c)] / exchange[(least, c)], "{:.1f}")
+    # the same exchange predicted from the two-rank ping-pong parameters of the model
+    for c in (128, 512):
+        predicted = params["alpha"] + 512 * c / params["B"]
+        put(f"ringx.model.us.c{c}", predicted * 1e6, "{:.1f}")
+        if (most, c) in exchange:
+            put(f"ringx.over.model.c{c}", exchange[(most, c)] / predicted, "{:.1f}")
+        if (least, c) in exchange:
+            put(f"ringx.pair.over.model.c{c}", exchange[(least, c)] / predicted, "{:.1f}")
+    # effective constants of the exchange of all ranks: least squares of time against rows, 16 <= c <= 512
+    pts = sorted((c, t) for (p, c), t in exchange.items() if p == most and 16 <= c <= 512)
+    if len(pts) >= 3:
+        slope, intercept = np.polyfit([c for c, _ in pts], [t for _, t in pts], 1)
+        bandwidth = 512 / slope
+        put("ringx.B.gbs", bandwidth / 1e9, "{:.1f}"); put("ringx.alpha.us", max(intercept, 0) * 1e6, "{:.1f}")
+        put("ringx.cstar", 4 * params["F"] / (2 * bandwidth), "{:.0f}")
+        put("ringx.B.ratio", params["B"] / bandwidth, "{:.1f}")
+    # efficiency that the measured exchange alone would give, against the measured rings (thin ranks, one node)
+    by = io.summarise(io.passed(io.load("e5-model", "model-thin.csv")), ["impl", "N", "ranks"])
+    gaps = []
+    for (impl, n, p), v in by.items():
+        control = by.get(("local", n, p))
+        c = int(n) // int(p)
+        if impl != "ring" or not control or (most, c) not in exchange or c < 16:
+            continue
+        step = control["median"] / int(p)                 # one block of the control
+        predicted = step / (step + exchange[(most, c)])
+        measured = control["median"] / v["median"]
+        put(f"ringx.pred.E.c{c}", predicted); put(f"ringx.meas.E.c{c}", measured)
+        gaps.append(measured - predicted)
+        # share of the measured loss that the exchange alone accounts for
+        if measured < 1:
+            put(f"ringx.share.pct.c{c}", 100 * (1 - predicted) / (1 - measured), "{:.0f}")
+    if gaps:
+        put("ringx.pred.maxdev", max(abs(g) for g in gaps)); put("ringx.pred.n", str(len(gaps)))
+        put("ringx.pred.bias", sum(gaps) / len(gaps), "{:+.2f}")
+
+
 def unit():
     """Unit tests of the submitted source, run on Vanda (scripts/hpc/jobs/unit_tests.pbs)."""
     import re
@@ -951,7 +1050,7 @@ def audit():
         put("audit.e11.minmass", __import__("make_tables").sci(records["smallest_window_probability"]))
 
 
-SECTIONS = [serial, hardware, ramp, align, strong, model, net, weak, hybrid, causal, memory, gqa, smallc, traces, gpu, real, errors, unit, audit]
+SECTIONS = [serial, hardware, ramp, align, strong, model, net, weak, hybrid, causal, memory, gqa, smallc, traces, gpu, real, errors, clock, ringx, unit, audit]
 
 
 def write():

@@ -24,8 +24,15 @@ difference divided by the largest output component of the tensor; it is not a
 relative error per element, and a head whose output is small could hide behind a
 large one. The outputs of the real layers are not of order one (their largest
 component ranges from \n{real.scale.min} to \n{real.scale.max} across the nine
-tensors), so the fixed tolerance $10^{-5}$ used for the synthetic outputs is
-replaced here by $10^{-3}$ times that largest component, stated with the results.
+tensors), so the automatic check of a run replaces the fixed tolerance $10^{-5}$ of
+the synthetic outputs by $10^{-3}$ times the largest component of the reference rows
+it compares with (the \n{real.valrows} sampled rows; their largest component is at
+most that of the whole tensor). That bound was written into the job script before
+the first real-tensor run and was not changed afterwards. It is deliberately
+loose, a guard against gross errors in the head mapping or the mask and not a
+statement about accuracy: every measured difference is at least
+\n{real.tol.margin} times smaller, and the measured values in \cref{tab:v7} are the
+result to read.
 All seven communication variants were also run on one layer with every row
 checked; they agree with the reference to the same level.
 
@@ -75,14 +82,18 @@ before; at $N=32{,}768$ (114 rows per rank) the three figures are
 \subsection{How far back does the model look?}
 Exact attention over the full context is the ground truth against which cheaper
 schemes can be judged. For 2{,}048 evenly spaced query positions of the
-$N=32{,}768$ context and every head, a double-precision two-pass program computes
-the exact probabilities and derives: the probability mass that falls on the most
+$N=32{,}768$ context and every head, a separate double-precision two-pass program
+(\code{attn\_analyze}) computes the exact probabilities and derives: the probability mass that falls on the most
 recent $w$ tokens; the relative error $\|O_w-O\|/\|O\|$ of the output when attention
 is restricted to that window and renormalised (the \emph{window} approximation);
 and the same error when the first four tokens of the sequence are kept as well (the
 \emph{sink+window} approximation used by streaming language models~\cite{streaming}).
 The statistics below use the queries in the second half of the sequence, whose
-context is longer than every window considered. What is compared is the output of
+context is longer than every window considered. This analysis needs no exchange
+between ranks: every rank reads all keys and values of the layer and takes its
+share of the sampled queries. The distributed ring is not what produces these
+statistics; its role on the real tensors is the validation of \cref{tab:v7} and the
+timings of \cref{sec:gqa}. What is compared is the output of
 one attention layer for fixed inputs. This is a replay of single layers, not a run
 of the model with windowed attention in every layer (where the change in one layer
 would alter the inputs of the next), so the errors below are not losses of model
@@ -155,5 +166,6 @@ on one model, one text and three layers, and the (query, head) pairs behind each
 median are correlated, so they show what the exact computation can measure, not a
 general law. For the purpose of this project they answer the motivating question:
 at a 32{,}768-token context a substantial share of the attention of a real model
-is long-range, so an exact method, and therefore the distributed scheme studied
-here, has something to compute that windows discard.
+is long-range, so an exact method has something to compute that windows discard,
+and the distributed scheme studied here is how the exact output of such a layer
+is obtained for all queries when one process is not enough.

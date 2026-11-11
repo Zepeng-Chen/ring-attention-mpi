@@ -66,6 +66,9 @@ if(ATTN_ENABLE_MPI)
     add_executable(attn_netbench apps/attn_netbench.cpp)
     target_link_libraries(attn_netbench PRIVATE MPI::MPI_CXX)
     target_compile_options(attn_netbench PRIVATE -Wall -Wextra -Wpedantic)
+    add_executable(attn_ringbench apps/attn_ringbench.cpp)
+    target_link_libraries(attn_ringbench PRIVATE MPI::MPI_CXX)
+    target_compile_options(attn_ringbench PRIVATE -Wall -Wextra -Wpedantic)
     execute_process(COMMAND git describe --always --dirty
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         OUTPUT_VARIABLE ATTN_GIT_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)

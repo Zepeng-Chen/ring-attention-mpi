@@ -283,6 +283,14 @@ def fig_collapse():
     if fit:
         ax.plot(cs, 1 / (1 + fit[0] / cs), color=ps.INK, lw=1.2, label=f"same form, one constant fitted to the\none-node rings: $c^*$ = {fit[0]:.0f} rows", zorder=1)
         numbers["fit"] = {"cstar": fit[0], "maxdev": fit[1]}
+    exchange = io.ring_exchange()
+    if params and exchange:
+        most = max(p for p, _ in exchange)
+        pts = sorted((c, t) for (p, c), t in exchange.items() if p == most)
+        predicted = [(c, (256 * c * c / params["F"]) / (256 * c * c / params["F"] + t)) for c, t in pts]
+        ax.plot(*zip(*predicted), color=ps.INK, lw=1.0, linestyle=":", marker=".", markersize=4,
+                label=f"compute time over compute plus the\nmeasured exchange of {most} ranks", zorder=2)
+        numbers["exchange_prediction"] = {str(c): e for c, e in predicted}
     for impl in ("allgather", "ring", "overlap"):
         for multi, face in ((False, ps.SURFACE), (True, ps.VARIANT[impl])):
             pts = [(p[3], p[4]) for p in points if p[0] == impl and (p[5] > 1) == multi]
@@ -420,23 +428,48 @@ def fig_hardware():
                 out.append((int(path.stem.split("-P")[1]), float(np.percentile(values, 75)) / 1000))
         return sorted(out)
 
-    fig, axes = plt.subplots(1, 2, figsize=(ps.FULL, 2.6), gridspec_kw={"wspace": 0.3})
+    clock = io.clock_table()
+    packed_clock = sorted((v["ranks"], v) for k, v in clock.items() if k.startswith("packed"))
+    spread_clock = sorted((v["ranks"], v) for k, v in clock.items() if k.startswith("spread"))
+    fig, axes = plt.subplots(1, 3, figsize=(ps.FULL, 2.55), gridspec_kw={"wspace": 0.42})
     numbers = {}
-    for ax, getter, ylabel, title in ((axes[0], per_core, "useful GFLOP/s per core", "(a) Throughput per core, no communication"),
-                                      (axes[1], None, "clock of the busiest cores (GHz)", "(b) Sampled core frequency")):
+    for ax, getter, ylabel, title in ((axes[0], per_core, "useful GFLOP/s per core", "(a) Throughput per core"),
+                                      (axes[1], None, "clock (GHz)", "(b) Clock")):
         if getter:
             series = [("filling socket 0 first", per_core(packed), ps.BLUE, "o"), ("spread over both sockets", per_core(spread), ps.ORANGE, "s"),
                       ("256-bit vectors, packed", per_core(wide), ps.AQUA, "^")]
         else:
-            series = [("filling socket 0 first", frequency("packed"), ps.BLUE, "o"), ("spread over both sockets", frequency("spread"), ps.ORANGE, "s")]
+            series = [("sampled, packed", frequency("packed"), ps.BLUE, "o"), ("sampled, spread", frequency("spread"), ps.ORANGE, "s")]
         for label, pts, colour, marker in series:
             if pts:
                 ax.plot(*zip(*pts), marker=marker, color=colour, label=label)
                 numbers[f"{title[:3]}|{label}"] = {str(x): y for x, y in pts}
-        ps.log2_axis(ax, "x", [1, 2, 4, 9, 18, 36, 72])
+        ps.log2_axis(ax, "x", [1, 4, 18, 72])
         ax.set_ylim(bottom=0)
         ax.set_xlabel("active cores on the node"); ax.set_ylabel(ylabel); ax.set_title(title)
-    axes[0].legend(loc="lower left", fontsize=ps.SMALL)
+    # the clock averaged over a whole run (cycles / CPU time under perf stat), measured in a separate job
+    if packed_clock:
+        axes[1].plot([p[0] for p in packed_clock], [p[1]["ghz"] for p in packed_clock], marker="D", color=ps.INK, linestyle=":",
+                     markersize=4, label="run average (perf), packed")
+        if spread_clock:
+            axes[1].plot([p[0] for p in spread_clock], [p[1]["ghz"] for p in spread_clock], marker="D", linestyle="none",
+                         markerfacecolor=ps.SURFACE, markeredgecolor=ps.INK, markeredgewidth=1.0, markersize=5, zorder=5,
+                         label="run average (perf), spread")
+        # (c) work per cycle relative to one rank: what is left of the loss once the clock is taken out
+        ax = axes[2]
+        one = packed_clock[0][1]["cycles_per_pair"]
+        ax.plot([p[0] for p in packed_clock], [one / p[1]["cycles_per_pair"] for p in packed_clock], marker="o", color=ps.BLUE, label="packed")
+        if spread_clock:
+            ax.plot([p[0] for p in spread_clock], [one / p[1]["cycles_per_pair"] for p in spread_clock], marker="s", color=ps.ORANGE,
+                    linestyle="none", label="spread")
+        ax.axhline(1.0, color=ps.AXIS, lw=0.8)
+        ps.log2_axis(ax, "x", [1, 4, 18, 72]); ax.set_ylim(0, 1.15)
+        ax.set_xlabel("active cores on the node"); ax.set_ylabel("pairs per cycle, relative to one rank")
+        ax.set_title("(c) Work per cycle")
+        ax.legend(loc="lower left", fontsize=ps.TINY)
+        numbers["clock"] = {k: v for k, v in clock.items()}
+    axes[0].legend(loc="lower left", fontsize=ps.TINY)
+    axes[1].legend(loc="lower left", fontsize=ps.TINY)
     ps.save(fig, OUT / "hardware")
     return numbers
 

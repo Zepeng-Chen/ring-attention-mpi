@@ -40,30 +40,32 @@ numerically stable summary of the softmax. I implemented the serial algorithm, s
 MPI communication strategies around one shared compute core, an OpenMP hybrid and
 three generations of CUDA kernels, without any linear-algebra library, and
 validated all of them against an independent double-precision reference.
-On the NUS Vanda cluster the tuned serial kernel reaches \n{serial.gflops.tuned}\,GFLOP/s
-on one core, \n{serial.speedup.fair} times a straightforward blocked kernel;
-aligning the arrays to cache lines alone is worth a factor of \n{align.speedup}. For
-$N=131{,}072$ the ring reaches a speedup of \n{strong.S.big.288} on 288 cores
-(efficiency \n{strong.E.big.288}). A control that runs the same computation without
-exchanging anything already stops at \n{strong.E0.big.288}: a fully loaded node runs at
-a lower clock, and smaller shards cost slightly more. The ring runs at
-\n{strong.Ecomm.big.288} of the control's speed. For single-thread ranks inside one
-node this ratio follows $1/(1+c^*/c)$ in the rows per rank $c$, with a fitted
-$c^*\approx\n{model.cstar.fit}$ rows, \n{model.cstar.ratio} times what a two-rank
-microbenchmark predicts; threads per rank, the network and the order of one-sided
-fetches all move it. Between nodes, where this cluster's MPI uses TCP, a transfer to a
-rank that was computing completed in a microbenchmark only when that rank next called
-MPI, and the one-sided variant is up to \n{strong.slow.rma_get.small.288} times slower
-than the control. With a causal mask a balanced partition makes the ring
-\n{causal.zigzag.gain.overlap.288} times faster than a contiguous one, which gains
-nothing from the mask. One A40 GPU with a fused kernel does the work of about
-\n{gpu.equiv.cores} loaded cores on this problem; two GPUs reach a speedup of
-\n{gpu2.one.S.host.overlap.N131072} at $N=131{,}072$, in one node and across two, but
-across nodes one exchange takes longer than the whole computation at $N=4{,}096$ and
-two GPUs are then slower than one. On the attention tensors of a real language model
-the code reproduces PyTorch's output to $\n{real.err.torch.max}$ of its scale, and in
-the three layers examined a window of 1{,}024 tokens changes the attention output by
-\n{real.err_w.layer0.1024}\% to more than 100\%.
+Measured on the NUS Vanda cluster, for $N=131{,}072$ the ring reaches a speedup of
+\n{strong.S.big.288} on 288 cores (efficiency \n{strong.E.big.288}). Three results
+explain that number.
+\emph{First, most of the loss is not communication.} A control that runs the same
+computation without exchanging anything already stops at \n{strong.E0.big.288}.
+Hardware counters split this into a clock that is \n{clock.floss.pct.72}\% lower
+when a socket is full, and a small cost of cutting the work into shards.
+\emph{Second, communication is governed by the rows $c$ that a rank owns.} For
+single-thread ranks inside a node the ring's speed relative to the control follows
+$1/(1+c^*/c)$ with $c^*\approx\n{model.cstar.fit}$ rows. A two-rank ping-pong predicts
+a constant \n{model.cstar.ratio} times smaller; measuring the exchange with all 72
+ranks at once gives \n{ringx.cstar}. Whether a transfer can hide behind computation
+depends on the MPI installation: between nodes, where this cluster uses TCP, a
+transfer to a computing rank completed only when that rank next called MPI, and
+the one-sided variant is up to \n{strong.slow.rma_get.small.288} times slower than
+the control.
+\emph{Third, with a causal mask the partition decides.} A balanced partition makes
+the ring \n{causal.zigzag.gain.overlap.288} to \n{causal.zigzag.gain.overlap.72}
+times faster than a contiguous one, which gains nothing from the mask.
+Beyond the CPU, for these hand-written kernels one A40 GPU does the work of about
+\n{gpu.equiv.cores} loaded cores, and two GPUs are
+\n{gpu2.one.S.host.overlap.N131072} times faster than one for long sequences. On the
+attention tensors of a real language model the code reproduces PyTorch's output to
+$\n{real.err.torch.max}$ of its scale, and in the three layers examined a window of
+1{,}024 tokens changes the attention output by \n{real.err_w.layer0.1024}\% to more
+than 100\%.
 \end{abstract}
 
 \section{Introduction}\label{sec:intro}
@@ -392,6 +394,14 @@ Enabling Training of Extreme Long Sequence Transformer Models}. 2023.
 \url{https://arxiv.org/abs/2309.14509}.
 \bibitem{usp} J. Fang and S. Zhao. \emph{USP: A Unified Sequence Parallelism Approach
 for Long Context Generative AI}. 2024. \url{https://arxiv.org/abs/2405.07719}.
+\bibitem{seqpar} S. Li, F. Xue, C. Baranwal, Y. Li and Y. You. \emph{Sequence
+Parallelism: Long Sequence Training from System Perspective}. ACL 2023 (arXiv 2021).
+\url{https://arxiv.org/abs/2105.13120}.
+\bibitem{canbody} M. Driscoll, E. Georganas, P. Koanantakool, E. Solomonik and
+K. Yelick. \emph{A Communication-Optimal N-Body Algorithm for Direct Interactions}.
+IPDPS 2013, pp.~1075--1084.
+\bibitem{a40} NVIDIA. \emph{NVIDIA A40 datasheet}.
+\url{https://images.nvidia.com/content/Solutions/data-center/a40/nvidia-a40-datasheet.pdf}.
 \bibitem{megatroncp} NVIDIA. \emph{Megatron-Core developer guide: Context
 Parallelism}. \url{https://docs.nvidia.com/megatron-core/developer-guide/latest/user-guide/features/context_parallel.html}.
 \bibitem{qwen} Qwen Team. \emph{Qwen2.5-0.5B} model card. 2024.
