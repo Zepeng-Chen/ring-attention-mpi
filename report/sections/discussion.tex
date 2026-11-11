@@ -23,17 +23,19 @@ algorithm: storing every array on a cache-line boundary (a factor of
 \item \textbf{The machine under load.} Inside one node, for shards of more than a
 few hundred rows, almost all of the loss is already in the control. Hardware
 counters split it into two factors: the clock, \n{clock.fratio.72} when a socket is
-full, and the work per cycle, which depends on how finely the sequence is cut
-(\n{clock.wratio.36} at 1{,}820 rows per rank, \n{clock.wratio.72} at 910). Their
+full, and the work per cycle, which follows how finely the sequence is cut
+(\n{clock.wratio.36} at 1{,}820 rows per rank, \n{clock.wratio.72} at 910; contention
+between the cores of a full node may contribute to it). Their
 product, not communication, is the efficiency of the one-node runs with large
 shards.
 \item \textbf{Communication.} For a given configuration it is governed by the rows
 a rank owns. With single-thread ranks inside a node a two-sided ring loses half its
 speed at about \n{model.cstar.fit} rows per rank, and the fitted form puts the 5\%
-mark near \n{model.c95.fit} rows. The constant is what the exchange costs when all
-ranks of the node exchange at once (\n{ringx.cstar} rows from a microbenchmark of
-exactly that), not what a message costs between two ranks of an idle node
-(\n{model.cstar}). Across nodes the overlapped ring stays close to
+mark near \n{model.c95.fit} rows. Most of that constant is explained by what the
+exchange costs when all ranks of the node exchange at once (\n{ringx.cstar} rows
+from a microbenchmark of exactly that) instead of what a message costs between two
+ranks of an idle node (\n{model.cstar}); for shards below about 256 rows the
+prediction from that measurement is still too pessimistic. Across nodes the overlapped ring stays close to
 the same curve, the blocking ring and the all-gather lose more
 (\n{strong.Ecomm.ring.big.288} and \n{strong.Ecomm.allgather.big.288} instead of
 \n{strong.Ecomm.big.288} at 288 ranks for $N=131{,}072$), and the one-sided variants

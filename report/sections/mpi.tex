@@ -93,8 +93,9 @@ socket full the clock is \n{clock.ghz.36}\,GHz and with both full
 eight configurations the product of the two counter-based factors agrees with the
 timed efficiency within \n{clock.product.gap.pct}\%. The 36 ranks spread over both
 sockets run at \n{clock.ghz.spread36}\,GHz with the same work per cycle as the 36
-packed ones (\n{clock.wratio.spread36} against \n{clock.wratio.36}): placement
-changes the clock and nothing else. Power and temperature were not measured, so
+packed ones (\n{clock.wratio.spread36} against \n{clock.wratio.36}): the
+difference that the counters show between the two placements is the clock. Power
+and temperature were not measured, so
 \emph{why} the processor lowers its clock is not established here; that it does,
 and by how much, is.
 
@@ -133,12 +134,12 @@ $E_0=\n{strong.Ehw.big.288}$ and $E_\text{comm}=\n{strong.Ecomm.big.288}$. Most 
 loss is already present in the control, on one node and on four.
 
 $E_0$ is therefore a product of two measured factors. The first is the clock. The
-second, the work per cycle, is the granularity of the decomposition: every rank
-transposes all $N$ keys into tiles for its own $c$ queries, and the last query
-tile of a rank and the last key tile of every shard are partial, so the same pairs
-cost a little more when they are cut into more and smaller pieces. The counters
-support this reading, because the factor follows the rows per rank and not the
-load. At 1{,}820 rows per rank it is \n{clock.wratio.36} with 36 packed ranks and
+second, the work per cycle, behaves like a cost of the granularity of the
+decomposition: every rank transposes all $N$ keys into tiles for its own $c$
+queries, and the last query tile of a rank and the last key tile of every shard
+are partial, so the same pairs cost a little more when they are cut into more and
+smaller pieces. The counters are consistent with this reading, because the factor
+follows the rows per rank more than the load. At 1{,}820 rows per rank it is \n{clock.wratio.36} with 36 packed ranks and
 \n{clock.wratio.spread36} with 36 spread ranks, and the strong-scaling run with 72
 ranks at $N=131{,}072$ implies \n{clock.implied.w.big} ($E_0$ divided by the clock
 factor); at 910 rows it is \n{clock.wratio.72} from the counters and
@@ -146,10 +147,11 @@ factor); at 910 rows it is \n{clock.wratio.72} from the counters and
 strong-scaling run implies \n{clock.implied.w.small}. That is why $E_0$ at 72 ranks
 falls from \n{strong.E0.big.72} for $N=131{,}072$ to \n{strong.E0.small.72} for
 $N=32{,}768$, and why it is lower at 288 ranks than at 72 for the same $N$ although
-all four nodes run at the same clock. (Contention for the memory system when both
-sockets are full cannot be told apart from granularity by the 72-rank point alone;
+all four nodes run at the same clock. Granularity is not the only possible
+cause, though. Contention for caches and memory when both sockets are full would
+also lower the work per cycle, and the 72-rank points cannot tell the two apart;
 the agreement at equal rows per rank under different loads speaks for
-granularity.) The nodes themselves are equally fast: with all 288 cores busy the
+granularity as the main part, without excluding a contribution of contention. The nodes themselves are equally fast: with all 288 cores busy the
 median compute time of a rank differs by \n{nodes.spread.pct}\% between the four
 nodes, and the fastest and the slowest of the 288 ranks differ by
 \n{nodes.rank.spread.pct}\%.
@@ -208,18 +210,22 @@ times for $16\le c\le512$ gives a bandwidth of \n{ringx.B.gbs}\,GB/s where the
 ping-pong gave \n{model.B.gbs}, and a fixed cost of \n{ringx.alpha.us}\,$\mu$s per
 step. With that bandwidth \cref{eq:model} gives $c^*=\n{ringx.cstar}$ rows, against
 \n{model.cstar.fit} fitted to the scaling runs and \n{model.cstar} from the
-ping-pong. The model's form was right and its constant was measured in the wrong
-situation: most of the factor of \n{model.cstar.ratio} is the crowd, 72 ranks
-copying through the same memory system at once, and the rest is the two-way
-exchange. The measured exchange time can also be used directly, without any
+ping-pong. Calibrating the constant in the situation in which the ring actually
+runs therefore explains most of the difference: the larger part of the factor of
+\n{model.cstar.ratio} is the crowd, 72 ranks copying through the same memory system
+at once, and the rest is the two-way exchange. How far the model's form itself
+holds can be checked by using the measured exchange time directly, without any
 constant: the time of one block of the control divided by that time plus the
 exchange time (dotted in \cref{fig:collapse}). It reproduces the measured ring at
 256 and 512 rows per rank (\n{ringx.pred.E.c256} and \n{ringx.pred.E.c512} against
 \n{ringx.meas.E.c256} and \n{ringx.meas.E.c512}) and is too pessimistic for smaller
 shards (\n{ringx.pred.E.c128} against \n{ringx.meas.E.c128} at 128 rows,
-\n{ringx.pred.E.c64} against \n{ringx.meas.E.c64} at 64). A plausible reason is that
-in a real run the ranks do not all enter the exchange at the same instant, as they
-do in the tight loop of the microbenchmark; I did not test this.
+\n{ringx.pred.E.c64} against \n{ringx.meas.E.c64} at 64). So the simple form,
+compute time plus an exchange time that does not depend on the computation, is
+confirmed for shards of 256 rows and more and not below. A plausible reason for
+the deviation is that in a real run the ranks do not all enter the exchange at the
+same instant, as they do in the tight loop of the microbenchmark; I did not test
+this.
 
 \paragraph{How far does the fitted curve carry?} The runs that were not used for
 the fit test it. The \n{model.heldout.one.n} one-node configurations of the two

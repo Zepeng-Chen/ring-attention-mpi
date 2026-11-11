@@ -46,12 +46,13 @@ explain that number.
 \emph{First, most of the loss is not communication.} A control that runs the same
 computation without exchanging anything already stops at \n{strong.E0.big.288}.
 Hardware counters split this into a clock that is \n{clock.floss.pct.72}\% lower
-when a socket is full, and a small cost of cutting the work into shards.
+when a socket is full, and a smaller loss of work per cycle that follows how
+finely the sequence is cut.
 \emph{Second, communication is governed by the rows $c$ that a rank owns.} For
 single-thread ranks inside a node the ring's speed relative to the control follows
 $1/(1+c^*/c)$ with $c^*\approx\n{model.cstar.fit}$ rows. A two-rank ping-pong predicts
 a constant \n{model.cstar.ratio} times smaller; measuring the exchange with all 72
-ranks at once gives \n{ringx.cstar}. Whether a transfer can hide behind computation
+ranks at once gives \n{ringx.cstar}, which explains most of the difference. Whether a transfer can hide behind computation
 depends on the MPI installation: between nodes, where this cluster uses TCP, a
 transfer to a computing rank completed only when that rank next called MPI, and
 the one-sided variant is up to \n{strong.slow.rma_get.small.288} times slower than
