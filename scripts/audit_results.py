@@ -24,14 +24,22 @@ Hard rules
   6. the main CPU build used 512-bit vectors and 4096-byte alignment; tile sizes
      are the stated ones outside the declared sweeps;
   7. a source that was changed after its measurement is listed in
-     POST_MEASUREMENT_CHANGES, and the condition under which the stored records
-     are unaffected is checked on those records;
+     POST_MEASUREMENT_CHANGES together with the hash of the submitted version that
+     the declaration describes; undoing the declared difference (pairs of text, or
+     a patch kept in results/source_hashes/changes/) restores every measured
+     version byte for byte, unless that version is named there as not verifiable
+     with the reason; and the condition under which the stored records are
+     unaffected is checked on those records;
   8. the unit tests ran on the cluster on exactly the staged files of the submitted
      tree, and every one passed;
   9. the audit is never run on a preview of unfinished jobs (ATTN_PREVIEW);
  10. the failure log of a selected run lists only declared failures, and every result
      file still holds the number of configurations pinned when the run was selected
-     (audit_results.py --pin).
+     (audit_results.py --pin);
+ 11. a record that carries a comparison with an external reference (PyTorch's
+     output for the real tensors) agrees with it within EXTERNAL_TOLERANCE_SCALE
+     times the largest component of that reference. The benchmark program
+     records this difference, but its exit status does not depend on it.
 Soft findings (recorded, not fatal): configurations whose three repetitions
 differ by more than 10 %.
 """
@@ -39,6 +47,7 @@ import hashlib
 import json
 import re
 import statistics
+import struct
 import sys
 from collections import OrderedDict
 from pathlib import Path
@@ -49,6 +58,7 @@ import results_io as io
 ROOT = Path(__file__).resolve().parents[1]
 GEN = ROOT / "report" / "generated"
 HASHES = ROOT / "results" / "source_hashes"
+CHANGES = HASHES / "changes"      # differences between measured and submitted sources, as patches
 
 # Files in which validated repetitions are allowed to exceed the tolerance, and why.
 DECLARED_FAILURES = {
@@ -71,8 +81,18 @@ PROTOCOL_EXCEPTIONS = {
 REPEATED_ROUNDS = {
     "baseline.csv": (3, "three alternating rounds of the serial driver, one rank of M0 and one rank of M2"),
 }
-# Sources that changed after the records computed with them were taken. The stored
-# records stay valid only under the stated condition, which rule 7 checks.
+# The benchmark driver compares its output with an external reference when one is given (--oref: PyTorch's
+# attention output for the real tensors) and records the largest difference, but its exit status and its
+# "validation" column depend on the fp64 comparison and the finiteness check only. Rule 11 applies the bound
+# of that comparison to the recorded difference, relative to the largest component of the external
+# reference. The rule was added after the measurements, when the recorded values were known.
+EXTERNAL_TOLERANCE_SCALE = 1e-3
+# Sources that changed after the records computed with them were taken. A declaration describes one
+# submitted version ("submitted_sha256"): a later edit of the file fails the audit until the difference
+# has been reviewed and declared again. "revert" (pairs of text) or "patches" (measured hash -> unified
+# diff from the measured to the submitted file, in results/source_hashes/changes/) must restore each
+# measured version byte for byte; "unverified" names a measured version of which no copy exists, with
+# the reason. The stored records stay valid only under the stated condition, which rule 7 checks.
 POST_MEASUREMENT_CHANGES = {
     "apps/attn_analyze.cpp": {
         "change": "two edge cases handled (a window whose weights all underflow relative to the row maximum; an exact output "
@@ -80,11 +100,33 @@ POST_MEASUREMENT_CHANGES = {
         "condition": "every field finite, every output norm positive and every window probability at least 1e-280: "
                      "the changed branches are then not reached and the arithmetic of the other branch is unchanged",
         "check": "analysis",
+        "submitted_sha256": "969ec89647604b91f8c618c906d63ccc8873566a06787181680d503245b4f3d6",
+        "patches": {"c168da161eea193186e88733aab40dbd5da93f561aa1e45ba20cca6e5e7211c9": "apps_attn_analyze.cpp.c168da161e.patch"},
+    },
+    # Not a kernel source: the GPU jobs were built from four versions of this driver, none of them the submitted one.
+    # The first of them (the GPU unit tests) was copied back from the cluster's staged source to make its patch.
+    "apps/attn_gpu_bench.cpp": {
+        "change": "the tolerance option of the CPU driver (--tolerance-scale), with the reference scale and the tolerance "
+                  "written to the records; an option that lets the ranks of a node share its GPUs (--share-gpu, used by the "
+                  "functional test only); the number of devices in use and the device index are written to the records "
+                  "instead of the rank count and the rank's index in its node; numeric options are read strictly (whole "
+                  "token, finite, in range)",
+        "condition": "without --tolerance-scale the tolerance is the absolute 1e-5 that the first version had built in; without "
+                     "--share-gpu every rank uses the device whose index is its index in the node and the device count equals "
+                     "the rank count, as before; every numeric option of every recorded command is a plain decimal number "
+                     "that the old and the new parser read to the same value",
+        "check": "gpu_commands",
+        "submitted_sha256": "bf5ff261fb744d1ad0262042816ffa869dc70261423b32d9bd5241b18e7dc1ee",
+        "patches": {"0d3b6215294c60f392a8190b7a8a5b84695d524a031653009efbeac7b276903b": "apps_attn_gpu_bench.cpp.0d3b621529.patch",
+                    "82532d39964b17f32bb8e9b13329569d13564618045dcba6ddfe30f5ddacedda": "apps_attn_gpu_bench.cpp.82532d3996.patch",
+                    "48cb2cb59ff6f75084636e6c17871d1724e32a046cfd2763ce30ae5aa18fe160": "apps_attn_gpu_bench.cpp.48cb2cb59f.patch",
+                    "24168fe66605af85d0df0ba7389f8d588ae7c1d862bc62890a49a7a5b4d1d916": "apps_attn_gpu_bench.cpp.24168fe666.patch"},
     },
     "CMakeLists.txt": {
         "change": "a target for the ring-exchange microbenchmark (apps/attn_ringbench.cpp) was added",
         "condition": "removing the three added lines restores the measured file byte for byte; no existing target is touched",
         "check": None,
+        "submitted_sha256": "558afd27b23c191220ecb963a680d34492be0b48c83aa014a45ddac99bfa1dab",
         "revert": [
             ("    add_executable(attn_ringbench apps/attn_ringbench.cpp)\n"
              "    target_link_libraries(attn_ringbench PRIVATE MPI::MPI_CXX)\n"
@@ -96,6 +138,7 @@ POST_MEASUREMENT_CHANGES = {
         "condition": "undoing the two changed conditions restores the measured file byte for byte, and every recorded command "
                      "gives both options a finite value, for which the old and the new condition are the same",
         "check": "commands",
+        "submitted_sha256": "ea92407a0a4bd3cfa281d5837f0213e7c3586ba0be52b3c6044a1fa3d278d3ec",
         # (text in the submitted file, text in the measured file)
         "revert": [
             ('!std::isfinite(o.warmup_seconds) || o.warmup_seconds < 0) throw std::invalid_argument("invalid warm-up time");',
@@ -111,6 +154,7 @@ TILES = ("128", "96")
 CPU_SOURCES = ("include/attn/core.hpp", "include/attn/distributed.hpp", "src/core.cpp", "src/distributed.cpp",
                "apps/attn_bench.cpp", "apps/attn_netbench.cpp", "CMakeLists.txt")
 GPU_SOURCES = ("include/attn/gpu.hpp", "src/gpu_kernels.cu")
+GPU_DRIVER = "apps/attn_gpu_bench.cpp"
 ANALYSIS_SOURCES = ("apps/attn_analyze.cpp",)
 
 
@@ -155,6 +199,67 @@ def recorded_commands(path):
                     if not (value == value and abs(value) != float("inf")):
                         bad.append(f"{option} {tokens[i + 1]}")
     return bool(commands) and not bad, {"commands": len(commands), "not_finite": bad[:5]}
+
+
+def undo_patch(submitted, patch):
+    """The file from which the unified diff `patch` leads to the text `submitted`. Every line of every hunk
+    must match exactly; a ValueError says where it does not."""
+    new, old, position, inside = submitted.splitlines(keepends=True), [], 0, False
+    for line in patch.splitlines(keepends=True):
+        if line.startswith("@@"):
+            header = re.match(r"@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@", line)
+            if not header or header.group(2) == "0":
+                raise ValueError(f"unsupported hunk header: {line.strip()}")
+            start = int(header.group(1)) - 1
+            if start < position:
+                raise ValueError(f"hunks overlap at line {start + 1}")
+            old += new[position:start]
+            position, inside = start, True
+        elif not inside:
+            continue                              # the two file-name lines before the first hunk
+        elif line[:1] in (" ", "+"):
+            if position >= len(new) or new[position] != line[1:]:
+                raise ValueError(f"line {position + 1} of the submitted file is not the one the patch expects")
+            if line[0] == " ":
+                old.append(line[1:])
+            position += 1
+        elif line[:1] == "-":
+            old.append(line[1:])
+        else:
+            raise ValueError(f"unsupported patch line: {line.strip()[:40]}")
+    return "".join(old + new[position:])
+
+
+GPU_INTEGER_OPTIONS = ("--N", "--Nq", "--d", "--dv", "--H", "--Hkv", "--window", "--sink", "--seed", "--validate", "--reps",
+                       "--warmup", "--k1-budget-mb")
+GPU_REAL_OPTIONS = ("--alpha", "--tolerance-scale")
+
+
+def gpu_commands(path):
+    """Checks the condition of POST_MEASUREMENT_CHANGES["apps/attn_gpu_bench.cpp"] on the recorded command
+    lines: every numeric option has a plain value that the lenient parser of the measured versions
+    (std::stoi, std::stof and relatives) and the strict parser of the submitted one read alike."""
+    commands, bad, shared = set(), [], 0
+    for csv_path in sorted(path.glob("*.csv")):
+        for row in io.read(csv_path):
+            if "command" in row and "attn_gpu_bench" in row["command"]:
+                commands.add(row["command"])
+    for command in commands:
+        tokens = command.split()
+        shared += "--share-gpu" in tokens
+        for i, token in enumerate(tokens[:-1]):
+            value = tokens[i + 1]
+            if token in GPU_INTEGER_OPTIONS and not (re.fullmatch(r"[0-9]+", value) and int(value) <= 0x7fffffff):
+                bad.append(f"{token} {value}")
+            if token in GPU_REAL_OPTIONS:
+                plain = re.fullmatch(r"[0-9]+(\.[0-9]+)?([eE][-+]?[0-9]+)?", value)
+                number = float(value) if plain else float("nan")
+                finite = number == number and abs(number) != float("inf")
+                # --alpha was read with std::stof and is now the cast of std::stod: the same value if it is a float
+                single = finite and (token != "--alpha" or abs(number) < 3e38 and struct.unpack("f", struct.pack("f", number))[0] == number)
+                if not (plain and finite and single):
+                    bad.append(f"{token} {value}")
+    return bool(commands) and not bad, {"commands": len(commands), "with_share_gpu": shared, "not_plain": bad[:5]}
 
 
 def analysis_records(path):
@@ -246,6 +351,22 @@ def audit():
                     problems.append(f"{run}/{name}: {info['failed']} repetitions failed validation")
                 if info["failed"]:
                     info["declared_failure"] = DECLARED_FAILURES.get(name)
+            if rows and "oref_abs_max" in rows[0]:
+                compared = [r for r in rows if r["oref_abs_max"] != "" or "--oref" in r.get("command", "")]
+                ratios = []
+                for r in compared:
+                    try:
+                        difference, scale = float(r["oref_max_abs_err"]), float(r["oref_abs_max"])
+                    except ValueError:
+                        difference, scale = float("nan"), 0.0
+                    ratios.append(difference / scale if scale > 0 else float("nan"))
+                if compared:
+                    # "not <=" also counts a difference that is not a number
+                    info["external_reference"] = {"records": len(compared), "largest_difference_over_scale": max(ratios),
+                                                  "failed": sum(not x <= EXTERNAL_TOLERANCE_SCALE for x in ratios)}
+                    if info["external_reference"]["failed"]:
+                        problems.append(f"{run}/{name}: {info['external_reference']['failed']} record(s) differ from the external "
+                                        f"reference by more than {EXTERNAL_TOLERANCE_SCALE:g} of its largest component")
             timed = rows and "t_total_max" in rows[0]
             if timed:
                 keys = [k for k in ("purpose", "impl", "kernel", "N", "ranks", "threads", "mask", "partition", "block_q", "block_k", "d", "H",
@@ -328,7 +449,7 @@ def audit():
 
     # 5. one source for all measurements of a kind, and the same source in the submitted tree
     sources = OrderedDict()
-    for kind, required in (("cpu", CPU_SOURCES), ("gpu", GPU_SOURCES), ("analysis", ANALYSIS_SOURCES)):
+    for kind, required in (("cpu", CPU_SOURCES), ("gpu", GPU_SOURCES + (GPU_DRIVER,)), ("analysis", ANALYSIS_SOURCES)):
         tags = sorted({e["source_tag"] for e in report.values() if e["kind"] == kind})
         shots = {t: snapshot(t) for t in tags}
         missing = [t for t, s in shots.items() if s is None]
@@ -352,23 +473,42 @@ def audit():
                 continue
             # A declared change: snapshots may hold the file as it was measured or as it is submitted.
             record = OrderedDict(change=declared["change"], condition=declared["condition"])
-            allowed = {local}
+            record["submitted_file_is_the_declared_version"] = local == declared["submitted_sha256"]
+            if local != declared["submitted_sha256"]:
+                problems.append(f"{kind}: {name} is not the version that its declaration in POST_MEASUREMENT_CHANGES describes "
+                                f"(sha256 {declared['submitted_sha256'][:10]}): review the new difference and declare it")
+            # Undo the declared difference; what comes out must be a measured version, byte for byte.
+            text, restored = (ROOT / name).read_text(), {}
             if "revert" in declared:
-                text = (ROOT / name).read_text()
                 for submitted, measured in declared["revert"]:
                     if text.count(submitted) != 1:
                         problems.append(f"{kind}: {name}: a declared change is not in the submitted file exactly once")
                     text = text.replace(submitted, measured)
-                restored = hashlib.sha256(text.encode()).hexdigest()
-                allowed.add(restored)
-                record["reverting_restores_measured_file"] = bool(distinct - {local}) and distinct - {local} == {restored}
-                if not distinct <= allowed:
-                    problems.append(f"{kind}: {name} differs from the measured source by more than the declared changes")
-            elif len(distinct) != 1:
-                problems.append(f"{kind}: {name} differs between source snapshots {tags}")
+                restored[hashlib.sha256(text.encode()).hexdigest()] = "pairs of text in POST_MEASUREMENT_CHANGES"
+            for digest, patch in declared.get("patches", {}).items():
+                try:
+                    measured = undo_patch((ROOT / name).read_text(), (CHANGES / patch).read_text())
+                except (OSError, ValueError) as error:
+                    problems.append(f"{kind}: {name}: the patch {patch} cannot be undone on the submitted file ({error})")
+                    continue
+                if hashlib.sha256(measured.encode()).hexdigest() == digest:
+                    restored[digest] = f"results/source_hashes/changes/{patch}"
+                else:
+                    problems.append(f"{kind}: {name}: undoing the patch {patch} does not give the measured file {digest[:10]}")
+            versions = OrderedDict()
+            for digest in sorted(distinct - {local}):
+                if digest in restored:
+                    versions[digest] = {"restored_byte_for_byte_by_undoing": restored[digest]}
+                elif digest in declared.get("unverified", {}):
+                    versions[digest] = {"difference_not_verified": declared["unverified"][digest]}
+                else:
+                    problems.append(f"{kind}: {name} differs from the measured source {digest[:10]} by more than the declared changes")
+            record["measured_versions"] = versions
+            record["reverting_restores_measured_file"] = bool(versions) and all(
+                "restored_byte_for_byte_by_undoing" in v for v in versions.values())
             record["snapshots_with_the_measured_version"] = sorted(t for t, h in hashes.items() if h != local)
             if declared["check"]:
-                checker = analysis_records if declared["check"] == "analysis" else recorded_commands
+                checker = {"analysis": analysis_records, "commands": recorded_commands, "gpu_commands": gpu_commands}[declared["check"]]
                 checks = OrderedDict()
                 for run, e in report.items():
                     if e["kind"] == kind and hashes.get(e["source_tag"]) != local:
@@ -380,9 +520,10 @@ def audit():
                 record["records_checked"] = checks
             entry["files"][name]["changed_after_measurement"] = record
         sources[kind] = entry
-    # the GPU driver differs between snapshots in logging and option checks only; record which version each job used
+    # which version of the GPU driver each job was built from (the versions are checked above, like every declared change)
     sources.setdefault("gpu", OrderedDict())["driver_by_snapshot"] = {
-        t: (snapshot(t) or {}).get("apps/attn_gpu_bench.cpp") for t in sorted({e["source_tag"] for e in report.values() if e["kind"] == "gpu"})}
+        t: (snapshot(t) or {}).get(GPU_DRIVER) for t in sorted({e["source_tag"] for e in report.values() if e["kind"] == "gpu"})}
+    external = [f["external_reference"] for e in report.values() for f in e["files"].values() if "external_reference" in f]
     cpu_models = sorted({e["cpu_model"] for e in report.values() if e["kind"] == "cpu" and e["cpu_model"]})
     if len(cpu_models) > 1:
         problems.append(f"CPU measurements on different processor models: {cpu_models}")
@@ -405,6 +546,10 @@ def audit():
                          selected_run_directories=len(selected_dirs), excluded_run_directories=len(excluded),
                          repetitions_validated=sum(e["validated"] for e in report.values()),
                          repetitions_failed=sum(e["failed"] for e in report.values()),
+                         external_reference=OrderedDict(
+                             tolerance_scale=EXTERNAL_TOLERANCE_SCALE, records=sum(x["records"] for x in external),
+                             failed=sum(x["failed"] for x in external),
+                             largest_difference_over_scale=max((x["largest_difference_over_scale"] for x in external), default=None)),
                          cpu_model=cpu_models, sources=sources, repeatability=repeatability,
                          repetition_spread=sorted(spread, key=lambda s: -s["relative_spread"]), runs=report)
     (ROOT / "results" / "audit.json").write_text(json.dumps(result, indent=1) + "\n")

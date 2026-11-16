@@ -18,7 +18,7 @@
   "gpu-ringcheck": "gpu-ringcheck-20261110T173729Z",
   "gpu-ring-1node": "gpu-ring-1node-20261110T173731Z",
   "gpu-ring-2node": "gpu-ring-2node-20261111T000513Z",
-  "unit-tests": "unit-tests-20261111T031309Z",
+  "unit-tests": "unit-tests-20261116T080229Z",
   "e5-fatcheck": "e5-fatcheck-20261111T001928Z",
   "gpu-validate": "gpu-validate-20261110T152555Z",
   "e8-clock": "e8-clock-20261111T031305Z"
@@ -104,7 +104,9 @@
   "e5-fatcheck-20261111T001155Z": "incomplete: the select statement had been replaced with qalter and lost its memory assignment; 16 of 24 configurations were killed at the memory limit (the 8 that ran agree with the repeat). Repeated as e5-fatcheck-20261111T001928Z",
   "unit-tests-20261111T001926Z": "all tests passed, but the benchmark driver's option checks were tightened afterwards; repeated on the final source as unit-tests-20261111T005710Z",
   "unit-tests-20261111T005607Z": "never ran: the scheduler sent it to a faulty node (cn-151), where it failed to start 13 times; deleted while queued and resubmitted on cn-037 as unit-tests-20261111T005710Z",
-  "unit-tests-20261111T005710Z": "all tests passed, but a program (attn_ringbench) and two suites were added afterwards; repeated on the final source as unit-tests-20261111T031309Z"
+  "unit-tests-20261111T005710Z": "all tests passed, but a program (attn_ringbench) and two suites were added afterwards; repeated on the final source as unit-tests-20261111T031309Z",
+  "unit-tests-20261111T031309Z": "all tests passed, but four test cases were added to the MPI tests afterwards (shard-boundary keys that carry nearly all the weight); repeated on the final source as unit-tests-20261116T080229Z",
+  "unit-tests-20261116T080012Z": "never ran: pinned to cn-035, which was shown as free but on which the scheduler placed no job (\"Insufficient amount of resource: host\"); deleted while queued and resubmitted on cn-064 as unit-tests-20261116T080229Z"
  },
  "configurations": {
   "e0-align-20261110T170343Z": {
@@ -182,7 +184,7 @@
    "e11-N8192-layer11.csv": 28672,
    "e11-N8192-layer23.csv": 28672
   },
-  "unit-tests-20261111T031309Z": {
+  "unit-tests-20261116T080229Z": {
    "unit-tests.csv": 14
   },
   "v1-single-20261110T173725Z": {

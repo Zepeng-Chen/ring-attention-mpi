@@ -32,7 +32,13 @@ the first real-tensor run and was not changed afterwards. It is deliberately
 loose, a guard against gross errors in the head mapping or the mask and not a
 statement about accuracy: every measured difference is at least
 \n{real.tol.margin} times smaller, and the measured values in \cref{tab:v7} are the
-result to read.
+result to read. Only this comparison with my own reference decides whether a run
+passes. The difference to PyTorch's output is recorded by the program but does not
+enter its exit status; the audit of the records (\cref{app:environment}) holds it
+to the same factor, $10^{-3}$ of the largest component of PyTorch's output. That
+rule was added after the measurements, when the recorded values were known (at
+most $\n{audit.external.max}$ of the scale in the \n{audit.external.records}
+repetitions that carry the comparison).
 All seven communication variants were also run on one layer with every row
 checked; they agree with the reference to the same level.
 

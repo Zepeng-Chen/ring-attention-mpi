@@ -5,9 +5,15 @@
   "73 configurations have a repetition spread above 10% (listed under repetition_spread)"
  ],
  "selected_run_directories": 18,
- "excluded_run_directories": 59,
+ "excluded_run_directories": 61,
  "repetitions_validated": 3369,
  "repetitions_failed": 18,
+ "external_reference": {
+  "tolerance_scale": 0.001,
+  "records": 72,
+  "failed": 0,
+  "largest_difference_over_scale": 6.28691186100835e-05
+ },
  "cpu_model": [
   "Intel(R) Xeon(R) Platinum 8452Y"
  ],
@@ -58,6 +64,12 @@
      "changed_after_measurement": {
       "change": "the options --warmup-seconds and --tolerance-scale reject infinite values",
       "condition": "undoing the two changed conditions restores the measured file byte for byte, and every recorded command gives both options a finite value, for which the old and the new condition are the same",
+      "submitted_file_is_the_declared_version": true,
+      "measured_versions": {
+       "d6df373155796a07ba067b8b85c5d5bd6044e13e7c331d7fc41aa1f277a4f2bd": {
+        "restored_byte_for_byte_by_undoing": "pairs of text in POST_MEASUREMENT_CHANGES"
+       }
+      },
       "reverting_restores_measured_file": true,
       "snapshots_with_the_measured_version": [
        "26bcb9e576",
@@ -135,6 +147,12 @@
      "changed_after_measurement": {
       "change": "a target for the ring-exchange microbenchmark (apps/attn_ringbench.cpp) was added",
       "condition": "removing the three added lines restores the measured file byte for byte; no existing target is touched",
+      "submitted_file_is_the_declared_version": true,
+      "measured_versions": {
+       "e62c52034f5a28184a2fe5217509d19fb8b80ab077ef3696fb4cc62abb473c3a": {
+        "restored_byte_for_byte_by_undoing": "pairs of text in POST_MEASUREMENT_CHANGES"
+       }
+      },
       "reverting_restores_measured_file": true,
       "snapshots_with_the_measured_version": [
        "26bcb9e576",
@@ -166,6 +184,74 @@
      ],
      "identical_across_snapshots": true,
      "submitted_tree_identical": true
+    },
+    "apps/attn_gpu_bench.cpp": {
+     "sha256": [
+      "0d3b6215294c60f392a8190b7a8a5b84695d524a031653009efbeac7b276903b",
+      "24168fe66605af85d0df0ba7389f8d588ae7c1d862bc62890a49a7a5b4d1d916",
+      "48cb2cb59ff6f75084636e6c17871d1724e32a046cfd2763ce30ae5aa18fe160",
+      "82532d39964b17f32bb8e9b13329569d13564618045dcba6ddfe30f5ddacedda"
+     ],
+     "identical_across_snapshots": false,
+     "submitted_tree_identical": false,
+     "changed_after_measurement": {
+      "change": "the tolerance option of the CPU driver (--tolerance-scale), with the reference scale and the tolerance written to the records; an option that lets the ranks of a node share its GPUs (--share-gpu, used by the functional test only); the number of devices in use and the device index are written to the records instead of the rank count and the rank's index in its node; numeric options are read strictly (whole token, finite, in range)",
+      "condition": "without --tolerance-scale the tolerance is the absolute 1e-5 that the first version had built in; without --share-gpu every rank uses the device whose index is its index in the node and the device count equals the rank count, as before; every numeric option of every recorded command is a plain decimal number that the old and the new parser read to the same value",
+      "submitted_file_is_the_declared_version": true,
+      "measured_versions": {
+       "0d3b6215294c60f392a8190b7a8a5b84695d524a031653009efbeac7b276903b": {
+        "restored_byte_for_byte_by_undoing": "results/source_hashes/changes/apps_attn_gpu_bench.cpp.0d3b621529.patch"
+       },
+       "24168fe66605af85d0df0ba7389f8d588ae7c1d862bc62890a49a7a5b4d1d916": {
+        "restored_byte_for_byte_by_undoing": "results/source_hashes/changes/apps_attn_gpu_bench.cpp.24168fe666.patch"
+       },
+       "48cb2cb59ff6f75084636e6c17871d1724e32a046cfd2763ce30ae5aa18fe160": {
+        "restored_byte_for_byte_by_undoing": "results/source_hashes/changes/apps_attn_gpu_bench.cpp.48cb2cb59f.patch"
+       },
+       "82532d39964b17f32bb8e9b13329569d13564618045dcba6ddfe30f5ddacedda": {
+        "restored_byte_for_byte_by_undoing": "results/source_hashes/changes/apps_attn_gpu_bench.cpp.82532d3996.patch"
+       }
+      },
+      "reverting_restores_measured_file": true,
+      "snapshots_with_the_measured_version": [
+       "0680e49ddb",
+       "26bcb9e576",
+       "43075d2e97",
+       "950c367da6"
+      ],
+      "records_checked": {
+       "gpu-ladder-20261110T154830Z": {
+        "commands": 33,
+        "with_share_gpu": 0,
+        "not_plain": [],
+        "condition_holds": true
+       },
+       "gpu-ring-1node-20261110T173731Z": {
+        "commands": 32,
+        "with_share_gpu": 0,
+        "not_plain": [],
+        "condition_holds": true
+       },
+       "gpu-ring-2node-20261111T000513Z": {
+        "commands": 32,
+        "with_share_gpu": 0,
+        "not_plain": [],
+        "condition_holds": true
+       },
+       "gpu-ringcheck-20261110T173729Z": {
+        "commands": 17,
+        "with_share_gpu": 17,
+        "not_plain": [],
+        "condition_holds": true
+       },
+       "gpu-validate-20261110T152555Z": {
+        "commands": 37,
+        "with_share_gpu": 0,
+        "not_plain": [],
+        "condition_holds": true
+       }
+      }
+     }
     }
    },
    "driver_by_snapshot": {
@@ -189,6 +275,13 @@
      "changed_after_measurement": {
       "change": "two edge cases handled (a window whose weights all underflow relative to the row maximum; an exact output equal to zero), absolute errors added as columns, MPI_THREAD_FUNNELED requested",
       "condition": "every field finite, every output norm positive and every window probability at least 1e-280: the changed branches are then not reached and the arithmetic of the other branch is unchanged",
+      "submitted_file_is_the_declared_version": true,
+      "measured_versions": {
+       "c168da161eea193186e88733aab40dbd5da93f561aa1e45ba20cca6e5e7211c9": {
+        "restored_byte_for_byte_by_undoing": "results/source_hashes/changes/apps_attn_analyze.cpp.c168da161e.patch"
+       }
+      },
+      "reverting_restores_measured_file": true,
       "snapshots_with_the_measured_version": [
        "ab50eef687"
       ],
@@ -3052,17 +3145,17 @@
    "validated": 0,
    "failed": 0
   },
-  "unit-tests-20261111T031309Z": {
+  "unit-tests-20261116T080229Z": {
    "experiments": [
     "unit-tests"
    ],
    "kind": "tests",
    "exit_status": "0",
    "logged_failures": 0,
-   "job": "1539667",
-   "source_tag": "70c478f422",
+   "job": "1564150",
+   "source_tag": "f5b72f40ee",
    "nodes": [
-    "cn-070.stdct.loc"
+    "cn-064.stdct.loc"
    ],
    "cpu_model": "Intel(R) Xeon(R) Platinum 8452Y",
    "allocated": {
@@ -3089,7 +3182,7 @@
     "cli": "passed",
     "ringbench": "passed"
    },
-   "submitted_tree_tag": "70c478f422",
+   "submitted_tree_tag": "f5b72f40ee",
    "tested_source_equals_submitted_tree": true,
    "files": {
     "unit-tests.csv": {
@@ -3180,6 +3273,11 @@
      "sha256": "5f530b0134cc3d8f502928ae835c64977d63bb89781245d1a52be2bcc902e1ea",
      "validated": 45,
      "failed": 0,
+     "external_reference": {
+      "records": 45,
+      "largest_difference_over_scale": 2.204213841036003e-05,
+      "failed": 0
+     },
      "configurations": 15,
      "repetitions": [
       3
@@ -3193,6 +3291,11 @@
      "sha256": "01889f5ec4085ec79e109fb088834a784a8379a922749f35355963a18f469a46",
      "validated": 27,
      "failed": 0,
+     "external_reference": {
+      "records": 27,
+      "largest_difference_over_scale": 6.28691186100835e-05,
+      "failed": 0
+     },
      "configurations": 9,
      "repetitions": [
       3

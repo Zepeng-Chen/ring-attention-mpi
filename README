@@ -124,7 +124,9 @@ order-one outputs, or `--tolerance-scale x` times the largest reference
 magnitude for real tensors. A failed check marks the CSV row and makes the
 program exit non-zero. `ctest` runs the unit tests (kernels, masks, uneven and
 empty shards, grouped heads, stressed logits, every MPI variant with repeated
-calls). The other tests are run directly:
+calls, and cases in which the keys at the shard boundaries carry nearly all
+the weight, so that a key misplaced by one row cannot hide behind a small
+weight). The other tests are run directly:
 
 ```bash
 python3 tests/analyze_test.py build/attn_analyze      # or: ... mpirun -np 2 build/attn_analyze
@@ -203,11 +205,20 @@ hardware and of the inputs are typed). One chain produces it:
    in `results/source_hashes/`); the compute and kernel sources of this tree are
    those files; build flags and tile sizes are the stated ones; the unit tests
    ran on the cluster on exactly the files of this tree; a program changed after
-   its records were computed is declared, and the condition under which those
-   records are unaffected is checked (`attn_bench`: two option checks, undoing
-   them restores the measured file and no recorded command is affected;
-   `CMakeLists.txt`: one added target; `attn_analyze`: two edge cases that do
-   not occur in the stored records); the failure log of a run lists only the
+   its records were computed is declared together with the hash of the submitted
+   version (a further edit fails the audit until it is declared), undoing the
+   declared difference must restore the measured file byte for byte, and the
+   condition under which the records are unaffected is checked (`attn_bench`:
+   two option checks, no recorded command is affected; `CMakeLists.txt`: one
+   added target; `attn_analyze`: two edge cases that do not occur in the stored
+   records; `attn_gpu_bench`: the tolerance option, an option for the shared-GPU
+   functional test, logged device fields and strict option parsing, with plain
+   option values in every recorded command. The differences of the last two are
+   kept as patches in `results/source_hashes/changes/`, one per measured
+   version); the
+   difference to the external PyTorch reference, which the benchmark records
+   but does not enforce, is at most 1e-3 of that reference's largest component;
+   the failure log of a run lists only the
    declared stress failures, and every result file still holds the number of
    configurations pinned when the run was selected (`audit_results.py --pin`). It writes `results/audit.json` and the
    provenance table of the appendix.

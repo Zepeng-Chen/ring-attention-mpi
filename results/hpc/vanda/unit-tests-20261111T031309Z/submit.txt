@@ -1,1 +1,0 @@
-qsub -h -P personal-USER -l select=1:ncpus=16:mpiprocs=16:ompthreads=1:host=cn-070 -l walltime=00:06:00  scripts/hpc/jobs/unit_tests.pbs

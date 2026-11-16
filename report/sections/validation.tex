@@ -14,14 +14,22 @@ report repeats the comparison on evenly spaced sample rows, each against all $N$
 keys (64 rows in the CPU runs and 32 in the GPU runs unless stated), and checks all
 outputs for non-finite values; a failed check makes the program exit with an error
 and marks the result line. The sampled rows include the first and the last row of
-the sequence but are not placed on shard boundaries. Because every sampled row is
-compared against \emph{all} keys, a wrong key or value at any shard boundary would
-show in each of them; the boundaries on the query side (uneven and empty shards,
-partial tiles) are what the unit tests check on every row. The runs that measure something other than the attention
+the sequence but are not placed on shard boundaries. Every sampled row is
+compared against \emph{all} keys that its mask allows, so an error in a whole block
+of keys or values (a shard missing, used twice, or paired with another shard's
+values) shows in the comparison. An error confined to a single key is not certain
+to: with the nearly uniform weights of the synthetic data one key weighs about
+$1/N$, which is $7.6\times10^{-6}$ at $N=131{,}072$ and of the order of the
+tolerance, and a key that the mask hides from the sampled rows does not enter them
+at all. Off-by-one errors at shard and tile boundaries, on the key side and on the
+query side (uneven and empty shards, partial tiles), are therefore left to the unit
+tests, which compare every row of sequences of at most 1{,}000 positions, where a
+key weighs $10^{-3}$ or more, and which include cases built so that the keys at the
+shard boundaries carry nearly all the weight (\cref{tab:tests}). The runs that measure something other than the attention
 time carry no comparison: peak memory, the hardware-counter runs of
 \cref{tab:align}, and the network microbenchmark.
 
-\paragraph{What the tests cover, and why.} The unit tests are few, eight kinds, and
+\paragraph{What the tests cover, and why.} The unit tests are few, nine kinds, and
 each targets one way the algorithm can fail (\cref{tab:tests}). A test is repeated
 for the parameter values on which that failure depends (both kernels, several tile
 sizes, rank counts), because an error at a tile or shard boundary shows only when
@@ -41,6 +49,7 @@ Stressed scores & queries multiplied by 50 (weights span 30 orders of magnitude)
 Extreme tails & a value of $10^{38}$ behind a weight of $e^{-100}$ & a tiny weight treated as if it were larger\\
 Grouped heads & $H=14$, $H_{kv}=2$ against explicitly replicated key/value heads & wrong head mapping\\
 Every MPI variant & seven shapes $\times$ M0--M8 and three fetch orders, three consecutive runs on one object & wrong owner or offset, stale buffers, missing synchronisation\\
+Dominant boundary keys & four more shapes for every MPI variant ($N=61$; contiguous and zigzag, with and without a causal mask) in which the first and the last key of every shard outweigh all others & a key or value misplaced by one row at a shard boundary, which a small weight could hide\\
 Counters & useful pairs and received bytes against closed forms & skipped or double-counted work\\
 \bottomrule
 \end{tabularx}
@@ -55,7 +64,11 @@ its own test against an independent recomputation and two constructed edge cases
 source (\cref{tab:provenance}). The core tests (\n{unit.core.cases} comparisons once
 the kernels and tile sizes are multiplied out) and the MPI tests for
 $P=1,\dots,\n{unit.mpi.pmax}$ with two threads per rank (\n{unit.mpi.groups}
-combinations of shape, variant and fetch order for each $P$) pass; the
+combinations of shape, variant and fetch order for each $P$) pass. In the cases
+with dominant boundary keys the test first establishes its own sensitivity:
+removing any one of those keys, or replacing it by its neighbour, changes every
+row that may see it by at least $\n{unit.boundary.min}$, \n{unit.boundary.factor}
+times the tolerance. The
 largest absolute error over all of them is $\n{unit.maxerr}$ (in the
 \n{unit.maxerr.case} case), below the tolerance by a factor of \n{unit.margin}. The
 three CUDA kernels pass \n{gpuunit.configs} boundary, mask and grouped-head cases on

@@ -1,0 +1,5 @@
+Authorized users only. All activity may be monitored and reported.
+cluster,ranks,nodes,rows,d,dv,bytes_per_step,steps,seconds_per_step_max,seconds_per_step_mean
+local,4,1,16,64,64,8192,4461,1.0445084734364491e-05,1.0444885956063661e-05
+local,4,1,128,64,64,65536,1896,2.659932805907173e-05,2.6597425896624472e-05
+local,4,1,1000,64,64,512000,318,0.00015462549056603769,0.00015456817767295594

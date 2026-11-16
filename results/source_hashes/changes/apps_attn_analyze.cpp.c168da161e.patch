@@ -1,0 +1,162 @@
+--- measured/apps/attn_analyze.cpp (sha256 c168da161eea193186e88733aab40dbd5da93f561aa1e45ba20cca6e5e7211c9)
++++ submitted/apps/attn_analyze.cpp (sha256 969ec89647604b91f8c618c906d63ccc8873566a06787181680d503245b4f3d6)
+@@ -10,7 +10,15 @@
+ //   err_w              || O_window(w) - O_exact || / || O_exact ||   where the
+ //                      window output renormalises over the last w keys
+ //   err_sw             same for the sink+window mask (first `sink` keys kept)
++//   abs_w, abs_sw      the same two differences without the division
+ //
++// Two edge cases are handled explicitly. (1) If every weight of a window
++// underflows relative to the maximum of the whole row, the window is evaluated
++// again with its own maximum, so its renormalised output stays defined. (2) If
++// the exact output is the zero vector the relative error is 0 when the
++// approximation is also exact and infinite otherwise; the absolute error is
++// always reported.
++//
+ // Queries are independent here, so ranks simply split the sampled rows; the
+ // distributed ring is exercised on the same files by attn_bench.
+ #include "attn/core.hpp"
+@@ -44,11 +52,14 @@
+ } // namespace
+ 
+ int main(int argc, char** argv) {
+-    MPI_Init(&argc, &argv);
++    // Only the main thread calls MPI; the OpenMP threads below only compute.
++    int provided = MPI_THREAD_SINGLE;
++    MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
+     int rank = 0, ranks = 1;
+     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+     MPI_Comm_size(MPI_COMM_WORLD, &ranks);
+     try {
++        if (provided < MPI_THREAD_FUNNELED) throw std::runtime_error("MPI_THREAD_FUNNELED is not available");
+         attn::Shape shape;
+         std::string directory, csv, label = "data";
+         std::vector<std::int64_t> windows = parse_list("16,64,256,1024,4096");
+@@ -83,7 +94,11 @@
+ 
+         const int group = shape.heads / shape.kv_heads;
+         const std::size_t nw = windows.size();
+-        const std::size_t width = 8 + 3 * nw;                 // doubles per (row, head) record
++        const std::size_t width = 8 + 5 * nw;                 // doubles per (row, head) record
++        // Below this sum of weights (relative to the row maximum) a window is
++        // re-evaluated with its own maximum; above it the direct formula is accurate.
++        const double tiny_mass = 1e-280;
++        const double infinity = std::numeric_limits<double>::infinity();
+         std::vector<double> records(mine.size() * static_cast<std::size_t>(shape.heads) * width);
+         const double scale = 1.0 / std::sqrt(static_cast<double>(shape.d));
+         const auto dv = static_cast<std::size_t>(shape.dv);
+@@ -92,8 +107,8 @@
+ #pragma omp parallel
+ #endif
+         {
+-            std::vector<double> weight(n), accumulator(dv), exact(dv), snapshots(nw * dv), sink_sum(dv);
+-            std::vector<double> snapshot_mass(nw);
++            std::vector<double> score(n), weight(n), accumulator(dv), exact(dv), snapshots(nw * dv), sink_sum(dv);
++            std::vector<double> snapshot_mass(nw), window_output(dv), union_output(dv), part(dv), sink_part(dv);
+ #ifdef _OPENMP
+ #pragma omp for schedule(dynamic, 1)
+ #endif
+@@ -109,12 +124,12 @@
+                         const float* kr = kv.k.data() + (j * shape.kv_heads + kh) * shape.d;
+                         double dot = 0;
+                         for (int a = 0; a < shape.d; ++a) dot += static_cast<double>(qr[a]) * static_cast<double>(kr[a]);
+-                        weight[j] = dot * scale;
+-                        if (weight[j] > maximum) { maximum = weight[j]; argmax = j; }
++                        score[j] = dot * scale;
++                        if (score[j] > maximum) { maximum = score[j]; argmax = j; }
+                     }
+                     double z = 0, weighted_log = 0;
+                     for (std::size_t j = 0; j <= i; ++j) {
+-                        const double shifted = weight[j] - maximum;
++                        const double shifted = score[j] - maximum;
+                         weight[j] = std::exp(shifted);
+                         z += weight[j];
+                         weighted_log += weight[j] * shifted;
+@@ -149,6 +164,22 @@
+                         sink_mass += weight[j];
+                         for (std::size_t a = 0; a < dv; ++a) sink_sum[a] += weight[j] * static_cast<double>(vr[a]);
+                     }
++                    // Sum of exp(score - own maximum) and of the correspondingly weighted values
++                    // over the keys [begin, end): a softmax of that range alone.
++                    auto range_sums = [&](std::size_t begin, std::size_t end, std::vector<double>& sum, double& own_max) {
++                        own_max = -infinity;
++                        for (std::size_t j = begin; j < end; ++j) own_max = std::max(own_max, score[j]);
++                        std::fill(sum.begin(), sum.end(), 0.0);
++                        double total = 0;
++                        for (std::size_t j = begin; j < end; ++j) {
++                            const float* vr = kv.v.data() + (j * shape.kv_heads + kh) * shape.dv;
++                            const double w = std::exp(score[j] - own_max);
++                            total += w;
++                            for (std::size_t a = 0; a < dv; ++a) sum[a] += w * static_cast<double>(vr[a]);
++                        }
++                        return total;
++                    };
++                    auto relative = [&](double absolute) { return norm > 0 ? absolute / norm : (absolute > 0 ? infinity : 0.0); };
+                     double* record = records.data() + (static_cast<std::size_t>(r) * shape.heads + h) * width;
+                     record[0] = static_cast<double>(i);
+                     record[1] = h;
+@@ -161,24 +192,45 @@
+                     for (std::size_t w = 0; w < nw; ++w) {
+                         const double* snap = snapshots.data() + w * dv;
+                         const double mass = snapshot_mass[w];
+-                        double window_error = 0, sink_error = 0;
+                         // The window is [first, i]; the sink is [0, sink_count). When the
+                         // two regions touch or overlap their union is the whole causal row,
+                         // so the sink+window output is exact.
+                         const std::size_t span = std::min<std::size_t>(static_cast<std::size_t>(windows[w]), i + 1);
+                         const std::size_t first = i + 1 - span;
+                         const bool disjoint = first > sink_count;
+-                        for (std::size_t a = 0; a < dv; ++a) {
+-                            const double window_output = snap[a] / mass;
+-                            window_error += (window_output - exact[a]) * (window_output - exact[a]);
+-                            if (disjoint) {
+-                                const double sw = (snap[a] + sink_sum[a]) / (mass + sink_mass);
+-                                sink_error += (sw - exact[a]) * (sw - exact[a]);
++                        double probability = mass / z;
++                        if (mass >= tiny_mass) {
++                            for (std::size_t a = 0; a < dv; ++a) window_output[a] = snap[a] / mass;
++                            if (disjoint) for (std::size_t a = 0; a < dv; ++a) union_output[a] = (snap[a] + sink_sum[a]) / (mass + sink_mass);
++                        } else {
++                            // The window's weights underflow relative to the row maximum.
++                            double window_max = 0, sink_max = 0;
++                            const double window_total = range_sums(first, i + 1, part, window_max);
++                            for (std::size_t a = 0; a < dv; ++a) window_output[a] = part[a] / window_total;
++                            probability = std::exp(window_max - maximum + std::log(window_total) - std::log(z));
++                            if (disjoint && sink_mass >= tiny_mass) {
++                                // The sink carries all the weight of the union that double precision can see.
++                                for (std::size_t a = 0; a < dv; ++a) union_output[a] = (snap[a] + sink_sum[a]) / (mass + sink_mass);
++                            } else if (disjoint) {
++                                const double sink_total = sink_count ? range_sums(0, sink_count, sink_part, sink_max) : 0.0;
++                                const double top = sink_count ? std::max(window_max, sink_max) : window_max;
++                                const double fw = std::exp(window_max - top), fs = sink_count ? std::exp(sink_max - top) : 0.0;
++                                for (std::size_t a = 0; a < dv; ++a)
++                                    union_output[a] = (fw * part[a] + (sink_count ? fs * sink_part[a] : 0.0)) / (fw * window_total + fs * sink_total);
+                             }
+                         }
+-                        record[8 + 3 * w] = mass / z;
+-                        record[9 + 3 * w] = norm > 0 ? std::sqrt(window_error) / norm : 0.0;
+-                        record[10 + 3 * w] = norm > 0 ? std::sqrt(sink_error) / norm : 0.0;
++                        double window_error = 0, sink_error = 0;
++                        for (std::size_t a = 0; a < dv; ++a) {
++                            window_error += (window_output[a] - exact[a]) * (window_output[a] - exact[a]);
++                            if (disjoint) sink_error += (union_output[a] - exact[a]) * (union_output[a] - exact[a]);
++                        }
++                        window_error = std::sqrt(window_error);
++                        sink_error = std::sqrt(sink_error);
++                        record[8 + 5 * w] = probability;
++                        record[9 + 5 * w] = relative(window_error);
++                        record[10 + 5 * w] = relative(sink_error);
++                        record[11 + 5 * w] = window_error;
++                        record[12 + 5 * w] = sink_error;
+                     }
+                 }
+             }
+@@ -200,7 +252,7 @@
+             if (!out) throw std::runtime_error("cannot write " + csv);
+             out.precision(10);
+             out << "label,N,sink,row,head,entropy,max_prob,argmax_distance,mass_first,mass_sink,output_norm";
+-            for (auto w : windows) out << ",mass_w" << w << ",err_w" << w << ",err_sw" << w;
++            for (auto w : windows) out << ",mass_w" << w << ",err_w" << w << ",err_sw" << w << ",abs_w" << w << ",abs_sw" << w;
+             out << '\n';
+             for (std::size_t record = 0; record * width < gathered.size(); ++record) {
+                 const double* x = gathered.data() + record * width;

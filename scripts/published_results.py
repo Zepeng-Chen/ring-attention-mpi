@@ -5,7 +5,7 @@ results/ holds every run retrieved from the cluster and is not under version
 control. The files named by this script are the exception: the selected runs'
 tables, their job records and the per-rank files that a figure, a table or a
 number reads (report/generated/provenance.json), together with the selection,
-the audit result and the source and data digests. With them the report can be
+the audit result, the source and data digests and the declared source differences. With them the report can be
 rebuilt from a clone of the repository. In these published copies the name of the
 cluster account has been replaced by USER wherever a path or a command line
 recorded it; nothing else differs from the files retrieved from the cluster.
@@ -26,6 +26,8 @@ def published():
     keep = {"results/selected_runs.json", "results/audit.json", "results/published_files.txt",
             "results/real_data/manifest.sha256", "results/real_data/meta.json"}
     keep |= {str(p.relative_to(ROOT)) for p in (ROOT / "results" / "source_hashes").glob("*.sha256")}
+    # differences between measured and submitted sources, which the audit undoes (rule 7)
+    keep |= {str(p.relative_to(ROOT)) for p in (ROOT / "results" / "source_hashes" / "changes").glob("*.patch")}
     for run in selected:
         for path in (RUNS / run).iterdir():
             if not path.is_file():

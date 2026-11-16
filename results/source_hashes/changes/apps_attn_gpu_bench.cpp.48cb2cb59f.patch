@@ -1,0 +1,98 @@
+--- measured/apps/attn_gpu_bench.cpp (sha256 48cb2cb59ff6f75084636e6c17871d1724e32a046cfd2763ce30ae5aa18fe160)
++++ submitted/apps/attn_gpu_bench.cpp (sha256 bf5ff261fb744d1ad0262042816ffa869dc70261423b32d9bd5241b18e7dc1ee)
+@@ -53,17 +53,36 @@
+     // device r mod #GPUs). Timings of such a run say nothing about scaling.
+     bool share_gpu = false;
+ };
++// Numeric options are read strictly, as in the CPU driver: the whole token must be
++// a number, and real values must be finite.
++std::int64_t integer(const std::string& s) {
++    std::size_t end = 0;
++    const auto x = std::stoll(s, &end);
++    if (end != s.size()) throw std::invalid_argument("invalid integer: " + s);
++    return x;
++}
++int small_integer(const std::string& s) {
++    const auto x = integer(s);
++    if (x < 0 || x > 0x7fffffff) throw std::invalid_argument("integer out of range: " + s);
++    return static_cast<int>(x);
++}
++double real(const std::string& s) {
++    std::size_t end = 0;
++    const double x = std::stod(s, &end);
++    if (end != s.size() || !std::isfinite(x)) throw std::invalid_argument("invalid number: " + s);
++    return x;
++}
+ Options parse(int argc, char** argv) {
+     Options o;
+     bool nq_set = false;
+     for (int i = 1; i + 1 < argc; i += 2) {
+         const std::string key = argv[i], value = argv[i + 1];
+-        if (key == "--N") o.shape.n = std::stoll(value);
+-        else if (key == "--Nq") { o.shape.nq = std::stoll(value); nq_set = true; }
+-        else if (key == "--d") o.shape.d = std::stoi(value);
+-        else if (key == "--dv") o.shape.dv = std::stoi(value);
+-        else if (key == "--H") o.shape.heads = std::stoi(value);
+-        else if (key == "--Hkv") o.shape.kv_heads = std::stoi(value);
++        if (key == "--N") o.shape.n = integer(value);
++        else if (key == "--Nq") { o.shape.nq = integer(value); nq_set = true; }
++        else if (key == "--d") o.shape.d = small_integer(value);
++        else if (key == "--dv") o.shape.dv = small_integer(value);
++        else if (key == "--H") o.shape.heads = small_integer(value);
++        else if (key == "--Hkv") o.shape.kv_heads = small_integer(value);
+         else if (key == "--kernel") o.kernel = value;
+         else if (key == "--comm") o.comm = value;
+         else if (key == "--schedule") o.schedule = value;
+@@ -74,25 +93,25 @@
+             else if (value == "window") o.mask.kind = attn::MaskKind::window;
+             else if (value == "sink-window") o.mask.kind = attn::MaskKind::sink_window;
+             else throw std::invalid_argument("unknown mask: " + value);
+-        } else if (key == "--window") o.mask.window = std::stoll(value);
+-        else if (key == "--sink") o.mask.sink = std::stoll(value);
++        } else if (key == "--window") o.mask.window = integer(value);
++        else if (key == "--sink") o.mask.sink = integer(value);
+         else if (key == "--partition") {
+             o.partition_name = value;
+             if (value == "contiguous") o.partition = attn::Partition::contiguous;
+             else if (value == "zigzag") o.partition = attn::Partition::zigzag;
+             else throw std::invalid_argument("unknown partition: " + value);
+-        } else if (key == "--seed") o.seed = std::stoull(value);
+-        else if (key == "--alpha") o.alpha = std::stof(value);
+-        else if (key == "--validate") o.validate = static_cast<std::size_t>(std::stoull(value));
+-        else if (key == "--reps") o.reps = std::stoi(value);
+-        else if (key == "--warmup") o.warmup = std::stoi(value);
++        } else if (key == "--seed") o.seed = static_cast<std::uint64_t>(small_integer(value));
++        else if (key == "--alpha") o.alpha = static_cast<float>(real(value));
++        else if (key == "--validate") o.validate = static_cast<std::size_t>(small_integer(value));
++        else if (key == "--reps") o.reps = small_integer(value);
++        else if (key == "--warmup") o.warmup = small_integer(value);
+         else if (key == "--data") o.data = value;
+         else if (key == "--cluster") o.cluster = value;
+         else if (key == "--purpose") o.purpose = value;
+         else if (key == "--csv") o.csv = value;
+         else if (key == "--rank-csv") o.rank_csv = value;
+-        else if (key == "--k1-budget-mb") o.k1_budget_mb = static_cast<std::size_t>(std::stoull(value));
+-        else if (key == "--tolerance-scale") o.tolerance_scale = std::stod(value);
++        else if (key == "--k1-budget-mb") o.k1_budget_mb = static_cast<std::size_t>(small_integer(value));
++        else if (key == "--tolerance-scale") o.tolerance_scale = real(value);
+         else if (key == "--share-gpu") o.share_gpu = value == "1";
+         else throw std::invalid_argument("unknown option: " + key);
+     }
+@@ -103,6 +122,8 @@
+     if (o.comm != "host" && o.comm != "aware") throw std::invalid_argument("--comm must be host or aware");
+     if (o.schedule != "overlap" && o.schedule != "blocking") throw std::invalid_argument("--schedule must be overlap or blocking");
+     if (o.reps < 1 || o.warmup < 0) throw std::invalid_argument("invalid repetition counts");
++    if (!std::isfinite(o.tolerance_scale) || o.tolerance_scale < 0) throw std::invalid_argument("--tolerance-scale must be finite and >= 0");
++    if (!std::isfinite(o.alpha)) throw std::invalid_argument("--alpha must be finite");
+     if (o.data != "synthetic" && o.data.rfind("file:", 0) != 0) throw std::invalid_argument("data must be synthetic or file:<directory>");
+     return o;
+ }
+@@ -347,7 +368,7 @@
+         if (!o.rank_csv.empty()) {
+             std::ostringstream line;
+             line << std::setprecision(17) << rep << ',' << rank << ',' << quote(std::string(host, static_cast<std::size_t>(host_length))) << ','
+-                 << local_rank << ',' << metrics.total << ',' << metrics.kernel << ',' << metrics.mpi << ',' << metrics.gpu_wait << ','
++                 << device_id << ',' << metrics.total << ',' << metrics.kernel << ',' << metrics.mpi << ',' << metrics.gpu_wait << ','
+                  << metrics.staging << ',' << metrics.bytes;
+             append(o.rank_csv + ".rank" + std::to_string(rank) + ".csv",
+                    "rep,rank,host,gpu,total,kernel,mpi,gpu_wait,staging,bytes_recv", line.str());

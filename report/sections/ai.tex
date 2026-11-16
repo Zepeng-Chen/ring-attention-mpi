@@ -23,13 +23,18 @@ code, the retrieved data and a draft of this report; that review found two edge-
 errors in the analysis program and several claims that were stronger than the
 evidence, and Claude Code then made the corresponding changes.
 \item \textbf{Later review rounds.} After that, the report was checked several
-more times against the code and the result files, in some rounds by me and in
-others by a separate Claude session. These rounds led to the statements about the balance of threads under a causal
+more times against the code and the result files, in some rounds by me, in others
+by a separate Claude session and in the last one by Codex. These rounds led to the statements about the balance of threads under a causal
 mask and about the query tiles of threaded ranks (\cref{sec:xdesign}), to the
 set-up cost of the one-sided variants (\cref{sec:setup}), to the paragraph on
 repeatability (\cref{sec:validation}), to the result sentence in the figure
-captions and to several corrections of wording; Claude Code made these changes
-as well.
+captions and to several corrections of wording. The last round led to the count
+of the ring's links between nodes (\cref{sec:setup}), to the condition under which
+the zigzag partition balances exactly (\cref{sec:causal}), to a narrower statement
+of what the sampled comparison can detect and to the unit test with dominant
+boundary keys (\cref{sec:validation}), and to the audit rules for the comparison
+with PyTorch and for programs changed after their measurement
+(\cref{app:environment}). Claude Code made all of these changes.
 \end{itemize}
 
 \noindent Every measured value in the report comes from a job that actually ran on

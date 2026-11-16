@@ -2,7 +2,11 @@
 
 \subsection{Set-up}\label{sec:setup}
 All runs use Vanda's 72-core nodes (\cref{tab:environment}), one core per rank,
-ranks filling the first socket, then the second, then the next node. A job owns its
+ranks filling the first socket, then the second, then the next node. Consecutive
+ranks therefore share a node: by the host names recorded for every rank,
+\n{topo.ring.cross.288} of the 288 links of a ring on four nodes join two nodes,
+while a rank of the one-sided pull makes \n{topo.pull.cross.pct.288}\% of its
+fetches from another node. A job owns its
 nodes exclusively. Configurations of up to 72 cores were measured in one-node jobs
 and larger ones in a four-node job; the 72-rank configurations were measured in
 both and agree within \n{strong.anchor.maxdev.pct}\%. Each configuration warms up
@@ -421,10 +425,14 @@ the target from congestion or from the cost of the software protocol.
 were run packed on one node and spread over four nodes, 18 per node. The spread
 run is \n{placement.gain.pct.overlap}\% faster (\n{placement.spread.overlap}\,s
 against \n{placement.packed.overlap}\,s for the overlapped ring, and the same
-\n{placement.gain.pct.local}\% for the control), although every exchange now crosses
-the Ethernet: with 18 active cores per node the processors run at
-\n{hw.freq.18}\,GHz instead of \n{hw.freq.72}\,GHz, and at 910 rows per rank the
-ring's communication costs less than the clock gains.
+\n{placement.gain.pct.local}\% for the control), although four of the 72 links of
+the ring then join two nodes and their exchanges go over the Ethernet. (This run
+recorded no host names. The count assumes the node-by-node numbering recorded for
+the eight-rank runs of \cref{fig:traces}, which the same job started with the same
+mapping rule: \n{topo.trace.cross} of their \n{topo.trace.links} links join two
+nodes.) With 18 active cores per node the processors run at
+\n{hw.freq.18}\,GHz instead of \n{hw.freq.72}\,GHz, and at 910 rows per rank those
+four links cost less than the clock gains.
 
 \subsection{Weak scaling}
 \begin{figure}[t]
@@ -475,12 +483,18 @@ chunk. (c) Resulting share of the work.}
 \end{figure}
 
 With a causal mask query $i$ uses $i+1$ keys, so the work is a triangle
-(\cref{fig:causalconcept}). A contiguous partition gives the last rank
-$(2P-1)/P^2$ of all pairs, almost twice the average, and the first rank almost
+(\cref{fig:causalconcept}). A contiguous partition gives the last rank, for large
+$N$, $(2P-1)/P^2$ of all pairs, almost twice the average, and the first rank almost
 nothing. The run then takes as long as the unmasked one although half the work is
-gone. The zigzag partition pairs chunk $r$ with chunk $2P-1-r$, whose row lengths
-add up to the same total for every $r$, so each rank gets exactly $1/P$ of the
-pairs.
+gone. The zigzag partition pairs chunk $r$ with chunk $2P-1-r$. If $2P$ divides
+$N$, the row lengths of such a pair add up to the same total for every $r$ and
+each rank gets exactly $1/P$ of the pairs. Otherwise the first $N \bmod 2P$ chunks
+are one row longer and the balance is only approximate: for $N=131{,}072$ the pair
+counts recorded per rank are equal with 8 ranks and deviate from their mean by at
+most \n{causal.pairs.maxdev.pct.zigzag.72}\% with 72 ranks and
+\n{causal.pairs.maxdev.pct.zigzag.288}\% with 288. A short sequence that $2P$ does
+not divide can be far from balanced (\n{causal.pairs.maxdev.pct.zigzag.N37.P5}\%
+for $N=37$ and $P=5$, one of the unit-test shapes).
 
 \begin{figure}[t]
 \centering

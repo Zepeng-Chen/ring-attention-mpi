@@ -57,18 +57,25 @@ has its three repetitions with finite times, and CPU runs their five-second warm
 built from byte-identical compute and benchmark-driver sources and all GPU jobs
 from identical kernel sources, and the submitted compute and kernel sources are
 those files; the build flags and tile sizes are the stated ones; the unit tests ran
-on Vanda on exactly the submitted files. Two programs were changed after their
-records were computed, both as a result of a code review. The benchmark driver now
-rejects infinite values of two options (the warm-up time and the tolerance scale).
-The audit verifies that undoing those two conditions restores the measured file
-byte for byte, and that none of the \n{audit.driver.commands} recorded command
-lines gave either option such a value, so every recorded run is read the same way
-by both versions. The analysis program of \cref{sec:real} now handles two edge
-cases (a window whose weights all underflow, an exact output of zero). The audit
-checks on the stored records that neither case occurs in them
-(\n{audit.e11.records} records, smallest window probability
-$\n{audit.e11.minmass}$, no zero output), in which case the old and the new program
-compute the same values. The audit also records which result
+on Vanda on exactly the submitted files; the recorded difference to PyTorch's
+output is within the bound of \cref{sec:real}. Three programs were changed after
+records had been computed with them. Each change is declared with the hash of the
+submitted file, so a later edit stops the build; the audit undoes the declared
+difference to recover the measured file byte for byte, and checks on the stored
+records that the old and the new program treat them alike. The benchmark driver now
+rejects infinite values of two options (warm-up time, tolerance scale); none of the
+\n{audit.driver.commands} recorded command lines gave either such a value. The
+analysis program of \cref{sec:real} now handles two edge cases (a window whose
+weights all underflow, an exact output of zero); neither occurs in the
+\n{audit.e11.records} stored records (smallest window probability
+$\n{audit.e11.minmass}$, no zero output). The GPU benchmark driver, which is not a
+kernel source, changed between the GPU jobs and after them: it gained the
+tolerance option of the CPU driver and an option that lets ranks share a GPU (used
+only by the functional test of \cref{sec:gpuring}), writes the device index and
+count to the records and reads numeric options strictly. All
+\n{audit.gpudriver.versions} measured versions are recovered from the submitted
+file, and all \n{audit.gpudriver.commands} recorded GPU command lines give the
+numeric options plain values. The audit also records which result
 files each figure, table and group of numbers was computed from.
 \Cref{tab:provenance} is that record, by job.
 \end{sloppypar}

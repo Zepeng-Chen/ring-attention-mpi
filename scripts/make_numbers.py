@@ -42,6 +42,32 @@ def sig(x, digits=2):
     return f"{r:.{max(d, 0)}f}"
 
 
+def hosts_by_rank(files):
+    """Host of every rank, in rank order, from per-rank files (None unless ranks 0..P-1 are all there)."""
+    host = {}
+    for path in files:
+        rows = io.read(path)
+        if rows:
+            host[int(rows[0]["rank"])] = rows[0]["host"]
+    return [host[r] for r in range(len(host))] if host and sorted(host) == list(range(len(host))) else None
+
+
+def ring_links_between_nodes(hosts):
+    """Number of links rank r -> rank r+1 (cyclic) whose two ends are on different hosts."""
+    return sum(hosts[r] != hosts[(r + 1) % len(hosts)] for r in range(len(hosts)))
+
+
+def zigzag_pairs(n, ranks):
+    """Query-key pairs that the causal mask allows, per rank, for the zigzag partition of attn::positions:
+    2P chunks, the first n mod 2P of them one row longer; rank r owns chunks r and 2P-1-r."""
+    chunks = 2 * ranks
+    base, extra = divmod(n, chunks)
+    def pairs(chunk):                      # rows start .. start+count-1; row i meets i+1 keys
+        start, count = base * chunk + min(chunk, extra), base + (chunk < extra)
+        return count * start + count * (count + 1) // 2
+    return [pairs(r) + pairs(chunks - 1 - r) for r in range(ranks)]
+
+
 def gflops(v):
     return float(v["row"]["useful_flops"]) / v["median"] / 1e9
 
@@ -314,6 +340,13 @@ def strong():
         put("nodes.count", str(len(per_host)))
         every = [x for v in per_host.values() for x in v]
         put("nodes.rank.spread.pct", 100 * (max(every) / min(every) - 1), "{:.1f}")
+    # where the neighbours of a rank are: ranks are numbered node by node
+    hosts = hosts_by_rank(io.rank_files(["e2-strongx", "e2-strong"], f"strong-local-N{big}-P{cores[-1]}.rank*.csv"))
+    if hosts:
+        P = len(hosts)
+        put(f"topo.ring.cross.{P}", str(ring_links_between_nodes(hosts)))
+        other = sum(a != b for a in hosts for b in hosts)         # ordered pairs of ranks on different nodes
+        put(f"topo.pull.cross.pct.{P}", 100 * other / (P * (P - 1)), "{:.0f}")
     # what the timed phase leaves out: the set-up, which for the one-sided pull creates the MPI window
     setup = {}
     for r in io.strong_rows():
@@ -558,6 +591,27 @@ def causal():
         ring, pull = by.get(("overlap", "causal", "zigzag", str(P))), by.get(("rma_get", "causal", "contiguous", str(P)))
         if ring and pull:
             put(f"causal.pull.over.ring.{P}", pull["median"] / ring["median"], "{:.1f}" if pull["median"] / ring["median"] >= 3 else "{:.2f}")
+    # Balance of the zigzag partition: pairs counted by every rank of the ring, against the closed form.
+    for P in sorted({int(k[3]) for k in by}):
+        counted = {}
+        for f in io.rank_files(io.MULTI, f"causal-overlap-zigzag-P{P}.rank*.csv"):
+            rows = io.read(f)
+            counted[int(rows[0]["rank"])] = int(rows[0]["useful_pairs"])
+        if len(counted) != P:
+            continue
+        ring = by.get(("overlap", "causal", "zigzag", str(P)))
+        if not ring:
+            continue
+        n = int(ring["row"]["N"])
+        if [counted[r] for r in range(P)] != zigzag_pairs(n, P):
+            raise SystemExit(f"causal, zigzag, P={P}: the recorded pair counts differ from the closed form of the partition")
+        mean = sum(counted.values()) / P
+        deviation = max(abs(x / mean - 1) for x in counted.values())
+        if (n % (2 * P) == 0) != (deviation == 0):
+            raise SystemExit(f"causal, zigzag, P={P}: the balance is exact if and only if 2P divides N; the records say otherwise")
+        put(f"causal.pairs.maxdev.pct.zigzag.{P}", 100 * deviation, "{:.2f}")
+    small = zigzag_pairs(37, 5)            # a unit-test shape that 2P does not divide (closed form, no measurement)
+    put("causal.pairs.maxdev.pct.zigzag.N37.P5", 100 * max(abs(x * 5 / sum(small) - 1) for x in small), "{:.0f}")
     for part in ("contiguous", "zigzag"):
         per_rank = [io.med(io.read(f), "compute") for f in io.rank_files(io.MULTI, f"causal-overlap-{part}-P8.rank*.csv")]
         if per_rank:
@@ -695,6 +749,12 @@ def traces():
     run = io.latest("e3-multi", "comm-trace.csv")
     if not run:
         return
+    # Numbering of the ranks under the per-node mapping rule that the placement run also used.
+    layouts = {impl: hosts_by_rank(sorted((run / "traces").glob(f"ranks-{impl}.rank*.csv"))) for impl in ("ring", "overlap", "rma_get")}
+    crossing = {(len(h), ring_links_between_nodes(h)) for h in layouts.values() if h}
+    if len(crossing) == 1:
+        links, between = crossing.pop()
+        put("topo.trace.links", str(links)); put("topo.trace.cross", str(between))
     for impl in ("ring", "overlap", "rma_get"):
         rows = io.read(run / "traces" / f"trace-{impl}.rank3.csv")
         if not rows:
@@ -1039,6 +1099,15 @@ def unit():
             worst = max(errors)
             put("unit.maxerr.case", re.findall(r"^(\w+),.*max_abs=%s," % re.escape(re.findall(r"max_abs=([0-9.eE+-]+),", text)[errors.index(max(errors))]), text, re.M)[0].replace("_", " "))
     N["unit.maxerr"] = mt.sci(worst)
+    # the cases with dominant boundary keys print what a wrong boundary key would change, and what they require
+    sensitivity = [(float(a), float(b)) for path in sorted(run.glob("mpi-tests-P*.log"))
+                   for a, b in re.findall(r",sensitivity,P=\d+,smallest_change=([0-9.eE+-]+),required=([0-9.eE+-]+)", io.read_text(path))]
+    if sensitivity:
+        smallest = min(a for a, b in sensitivity)
+        if smallest < max(b for a, b in sensitivity):
+            raise SystemExit("unit tests: a boundary-key case reports a sensitivity below the one it requires")
+        put("unit.boundary.min", sig(smallest)); put("unit.boundary.factor", thousands(float(sig(smallest)) / 1e-5))
+        put("unit.boundary.cases", str(len(sensitivity)))
     put("unit.margin", 1e-5 / worst, "{:.0f}")
     put("unit.mpi.groups", str(groups)); put("unit.mpi.pmax", str(max(ranks))); put("unit.mpi.pcount", str(len(ranks)))
     env = io.read_text(run / "environment.txt")
@@ -1070,6 +1139,16 @@ def audit():
         records = list(checked["records_checked"].values())[0]
         put("audit.e11.records", thousands(records["records"]))
         put("audit.e11.minmass", __import__("make_tables").sci(records["smallest_window_probability"]))
+    external = a.get("external_reference")
+    if external and external["records"]:
+        put("audit.external.records", str(external["records"]))
+        put("audit.external.max", __import__("make_tables").sci(external["largest_difference_over_scale"]))
+    gpu_driver = a["sources"].get("gpu", {}).get("files", {}).get("apps/attn_gpu_bench.cpp", {}).get("changed_after_measurement")
+    if gpu_driver:
+        versions = gpu_driver["measured_versions"].values()
+        put("audit.gpudriver.versions", str(len(versions)))
+        put("audit.gpudriver.restored", str(sum("restored_byte_for_byte_by_undoing" in v for v in versions)))
+        put("audit.gpudriver.commands", str(sum(r["commands"] for r in gpu_driver["records_checked"].values())))
 
 
 SECTIONS = [serial, hardware, ramp, align, strong, model, net, weak, hybrid, causal, memory, gqa, smallc, traces, gpu, real, errors, clock, ringx, unit, audit]

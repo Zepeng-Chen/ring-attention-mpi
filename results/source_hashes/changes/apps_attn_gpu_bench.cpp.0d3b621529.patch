@@ -1,0 +1,174 @@
+--- measured/apps/attn_gpu_bench.cpp (sha256 0d3b6215294c60f392a8190b7a8a5b84695d524a031653009efbeac7b276903b)
++++ submitted/apps/attn_gpu_bench.cpp (sha256 bf5ff261fb744d1ad0262042816ffa869dc70261423b32d9bd5241b18e7dc1ee)
+@@ -48,18 +48,41 @@
+     float alpha = 1;
+     int reps = 3, warmup = 1;
+     std::size_t validate = 16, k1_budget_mb = 2048;
++    double tolerance_scale = 0;   // 0: absolute 1e-5; x > 0: x times the largest reference magnitude
++    // Functional test only: let the ranks of a node share its GPUs (rank r uses
++    // device r mod #GPUs). Timings of such a run say nothing about scaling.
++    bool share_gpu = false;
+ };
++// Numeric options are read strictly, as in the CPU driver: the whole token must be
++// a number, and real values must be finite.
++std::int64_t integer(const std::string& s) {
++    std::size_t end = 0;
++    const auto x = std::stoll(s, &end);
++    if (end != s.size()) throw std::invalid_argument("invalid integer: " + s);
++    return x;
++}
++int small_integer(const std::string& s) {
++    const auto x = integer(s);
++    if (x < 0 || x > 0x7fffffff) throw std::invalid_argument("integer out of range: " + s);
++    return static_cast<int>(x);
++}
++double real(const std::string& s) {
++    std::size_t end = 0;
++    const double x = std::stod(s, &end);
++    if (end != s.size() || !std::isfinite(x)) throw std::invalid_argument("invalid number: " + s);
++    return x;
++}
+ Options parse(int argc, char** argv) {
+     Options o;
+     bool nq_set = false;
+     for (int i = 1; i + 1 < argc; i += 2) {
+         const std::string key = argv[i], value = argv[i + 1];
+-        if (key == "--N") o.shape.n = std::stoll(value);
+-        else if (key == "--Nq") { o.shape.nq = std::stoll(value); nq_set = true; }
+-        else if (key == "--d") o.shape.d = std::stoi(value);
+-        else if (key == "--dv") o.shape.dv = std::stoi(value);
+-        else if (key == "--H") o.shape.heads = std::stoi(value);
+-        else if (key == "--Hkv") o.shape.kv_heads = std::stoi(value);
++        if (key == "--N") o.shape.n = integer(value);
++        else if (key == "--Nq") { o.shape.nq = integer(value); nq_set = true; }
++        else if (key == "--d") o.shape.d = small_integer(value);
++        else if (key == "--dv") o.shape.dv = small_integer(value);
++        else if (key == "--H") o.shape.heads = small_integer(value);
++        else if (key == "--Hkv") o.shape.kv_heads = small_integer(value);
+         else if (key == "--kernel") o.kernel = value;
+         else if (key == "--comm") o.comm = value;
+         else if (key == "--schedule") o.schedule = value;
+@@ -70,24 +93,26 @@
+             else if (value == "window") o.mask.kind = attn::MaskKind::window;
+             else if (value == "sink-window") o.mask.kind = attn::MaskKind::sink_window;
+             else throw std::invalid_argument("unknown mask: " + value);
+-        } else if (key == "--window") o.mask.window = std::stoll(value);
+-        else if (key == "--sink") o.mask.sink = std::stoll(value);
++        } else if (key == "--window") o.mask.window = integer(value);
++        else if (key == "--sink") o.mask.sink = integer(value);
+         else if (key == "--partition") {
+             o.partition_name = value;
+             if (value == "contiguous") o.partition = attn::Partition::contiguous;
+             else if (value == "zigzag") o.partition = attn::Partition::zigzag;
+             else throw std::invalid_argument("unknown partition: " + value);
+-        } else if (key == "--seed") o.seed = std::stoull(value);
+-        else if (key == "--alpha") o.alpha = std::stof(value);
+-        else if (key == "--validate") o.validate = static_cast<std::size_t>(std::stoull(value));
+-        else if (key == "--reps") o.reps = std::stoi(value);
+-        else if (key == "--warmup") o.warmup = std::stoi(value);
++        } else if (key == "--seed") o.seed = static_cast<std::uint64_t>(small_integer(value));
++        else if (key == "--alpha") o.alpha = static_cast<float>(real(value));
++        else if (key == "--validate") o.validate = static_cast<std::size_t>(small_integer(value));
++        else if (key == "--reps") o.reps = small_integer(value);
++        else if (key == "--warmup") o.warmup = small_integer(value);
+         else if (key == "--data") o.data = value;
+         else if (key == "--cluster") o.cluster = value;
+         else if (key == "--purpose") o.purpose = value;
+         else if (key == "--csv") o.csv = value;
+         else if (key == "--rank-csv") o.rank_csv = value;
+-        else if (key == "--k1-budget-mb") o.k1_budget_mb = static_cast<std::size_t>(std::stoull(value));
++        else if (key == "--k1-budget-mb") o.k1_budget_mb = static_cast<std::size_t>(small_integer(value));
++        else if (key == "--tolerance-scale") o.tolerance_scale = real(value);
++        else if (key == "--share-gpu") o.share_gpu = value == "1";
+         else throw std::invalid_argument("unknown option: " + key);
+     }
+     if (argc % 2 == 0) throw std::invalid_argument("every option needs a value");
+@@ -97,6 +122,8 @@
+     if (o.comm != "host" && o.comm != "aware") throw std::invalid_argument("--comm must be host or aware");
+     if (o.schedule != "overlap" && o.schedule != "blocking") throw std::invalid_argument("--schedule must be overlap or blocking");
+     if (o.reps < 1 || o.warmup < 0) throw std::invalid_argument("invalid repetition counts");
++    if (!std::isfinite(o.tolerance_scale) || o.tolerance_scale < 0) throw std::invalid_argument("--tolerance-scale must be finite and >= 0");
++    if (!std::isfinite(o.alpha)) throw std::invalid_argument("--alpha must be finite");
+     if (o.data != "synthetic" && o.data.rfind("file:", 0) != 0) throw std::invalid_argument("data must be synthetic or file:<directory>");
+     return o;
+ }
+@@ -161,7 +188,11 @@
+     MPI_Comm_free(&node);
+     const int devices = attn::gpu::device_count();
+     if (devices < 1) throw std::runtime_error("no CUDA device visible");
+-    if (local_size > devices) throw std::runtime_error("more ranks on a node than GPUs; one GPU per rank is required");
++    if (local_size > devices && !o.share_gpu)
++        throw std::runtime_error("more ranks on a node than GPUs; one GPU per rank is required (--share-gpu 1 for a functional test)");
++    const int device_id = local_rank % devices;
++    // Number of distinct devices in use (equals the rank count unless GPUs are shared).
++    const int gpus_used = static_cast<int>(reduce(static_cast<std::uint64_t>(local_rank < devices ? 1 : 0), MPI_SUM));
+     const bool aware = o.comm == "aware", overlap = o.schedule == "overlap";
+ #if defined(OPEN_MPI) && defined(MPIX_CUDA_AWARE_SUPPORT)
+     if (aware && ranks > 1 && MPIX_Query_cuda_support() != 1)
+@@ -194,6 +225,12 @@
+         expected = attn::reference64(sampled, all_kv, o.shape, o.mask);
+     }
+     const std::uint64_t pairs = reduce(attn::count_pairs(qp, all_pos, o.shape, o.mask), MPI_SUM);
++    // Same tolerance rule as the CPU driver: 1e-5 absolute for order-one synthetic
++    // outputs, or a stated multiple of the largest reference magnitude for real tensors.
++    double reference_scale = 0;
++    for (double x : expected) reference_scale = std::max(reference_scale, std::abs(x));
++    reference_scale = reduce(reference_scale, MPI_MAX);
++    const double atol = o.tolerance_scale > 0 ? o.tolerance_scale * reference_scale : 1e-5;
+ 
+     std::vector<int> kcounts(ranks), vcounts(ranks);
+     std::size_t max_rows = 0;
+@@ -203,7 +240,7 @@
+         kcounts[r] = count_int(rows * o.shape.kv_heads * o.shape.d);
+         vcounts[r] = count_int(rows * o.shape.kv_heads * o.shape.dv);
+     }
+-    attn::gpu::Device* device = attn::gpu::create(local_rank, o.shape, o.mask, attn::gpu::parse_variant(o.kernel),
++    attn::gpu::Device* device = attn::gpu::create(device_id, o.shape, o.mask, attn::gpu::parse_variant(o.kernel),
+                                                   q, max_rows, o.k1_budget_mb << 20);
+     std::vector<float> output(qp.size() * static_cast<std::size_t>(o.shape.heads) * o.shape.dv);
+     const int left = (rank + ranks - 1) % ranks, right = (rank + 1) % ranks;
+@@ -289,7 +326,7 @@
+     MPI_Get_library_version(mpi_text, &mpi_length);
+     const std::string header = "timestamp,cluster,nodes,ranks,gpus,kernel,comm,schedule,partition,mask,N,Nq,d,dv,H,Hkv,data,seed,alpha,rep,"
+         "t_total_max,t_total_mean,t_kernel_max,t_kernel_mean,t_mpi_max,t_mpi_mean,t_gpu_wait_max,t_staging_max,bytes_recv_max,"
+-        "useful_flops,gflops,val_rows,max_abs_err,max_rel_err,nan_inf,validation,gpu_name,mpi_version,purpose,command";
++        "useful_flops,gflops,val_rows,max_abs_err,max_rel_err,nan_inf,validation,gpu_name,mpi_version,purpose,command,ref_abs_max,atol";
+     bool failed = false;
+     for (int rep = 0; rep < o.reps; ++rep) {
+         const auto metrics = run();
+@@ -297,7 +334,7 @@
+         for (auto i : selected)
+             sampled_output.insert(sampled_output.end(), output.begin() + i * o.shape.heads * o.shape.dv,
+                                   output.begin() + (i + 1) * o.shape.heads * o.shape.dv);
+-        auto error = attn::compare(sampled_output, expected);
++        auto error = attn::compare(sampled_output, expected, atol);
+         error.nonfinite = 0;
+         for (float x : output) if (!std::isfinite(x)) ++error.nonfinite;
+         const double abs_error = reduce(error.max_abs, MPI_MAX), rel_error = reduce(error.max_rel, MPI_MAX);
+@@ -307,7 +344,7 @@
+         const double flops = 2.0 * (o.shape.d + o.shape.dv) * static_cast<double>(pairs);
+         if (rank == 0) {
+             std::ostringstream line;
+-            line << std::setprecision(17) << now() << ',' << quote(o.cluster) << ',' << nodes << ',' << ranks << ',' << ranks << ','
++            line << std::setprecision(17) << now() << ',' << quote(o.cluster) << ',' << nodes << ',' << ranks << ',' << gpus_used << ','
+                  << o.kernel << ',' << o.comm << ',' << o.schedule << ',' << o.partition_name << ',' << o.mask_name << ','
+                  << o.shape.n << ',' << o.shape.nq << ',' << o.shape.d << ',' << o.shape.dv << ',' << o.shape.heads << ',' << o.shape.kv_heads << ','
+                  << quote(o.data) << ',' << o.seed << ',' << o.alpha << ',' << rep << ','
+@@ -319,7 +356,7 @@
+                  << abs_error << ',' << rel_error << ',' << nonfinite << ','
+                  << (nonfinite || failures ? "failed" : (o.validate ? "passed" : "not_requested")) << ','
+                  << quote(attn::gpu::name(device)) << ',' << quote(std::string(mpi_text, static_cast<std::size_t>(mpi_length))) << ','
+-                 << quote(o.purpose) << ',' << quote(command);
++                 << quote(o.purpose) << ',' << quote(command) << ',' << reference_scale << ',' << atol;
+             if (o.csv.empty() && rep == 0) std::cout << header << '\n';
+             append(o.csv, header, line.str());
+         } else {
+@@ -331,7 +368,7 @@
+         if (!o.rank_csv.empty()) {
+             std::ostringstream line;
+             line << std::setprecision(17) << rep << ',' << rank << ',' << quote(std::string(host, static_cast<std::size_t>(host_length))) << ','
+-                 << local_rank << ',' << metrics.total << ',' << metrics.kernel << ',' << metrics.mpi << ',' << metrics.gpu_wait << ','
++                 << device_id << ',' << metrics.total << ',' << metrics.kernel << ',' << metrics.mpi << ',' << metrics.gpu_wait << ','
+                  << metrics.staging << ',' << metrics.bytes;
+             append(o.rank_csv + ".rank" + std::to_string(rank) + ".csv",
+                    "rep,rank,host,gpu,total,kernel,mpi,gpu_wait,staging,bytes_recv", line.str());

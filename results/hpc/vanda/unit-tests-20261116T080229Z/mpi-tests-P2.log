@@ -1,0 +1,280 @@
+Authorized users only. All activity may be monitored and reported.
+uneven_gqa,allgather,P=2,order=0,max_abs=7.1714e-08,repetitions=3
+uneven_gqa,iallgather,P=2,order=0,max_abs=7.19985e-08,repetitions=3
+uneven_gqa,ring,P=2,order=0,max_abs=7.19985e-08,repetitions=3
+uneven_gqa,overlap,P=2,order=0,max_abs=7.19985e-08,repetitions=3
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+uneven_gqa,rma_get,P=2,order=0,max_abs=7.19985e-08,repetitions=3
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+uneven_gqa,rma_get,P=2,order=1,max_abs=7.1714e-08,repetitions=3
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+uneven_gqa,rma_get,P=2,order=2,max_abs=7.19985e-08,repetitions=3
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+uneven_gqa,rma_put,P=2,order=0,max_abs=7.19985e-08,repetitions=3
+uneven_gqa,local,P=2,order=0,max_abs=7.19985e-08,repetitions=3
+causal_stress,allgather,P=2,order=0,max_abs=1.93807e-06,repetitions=3
+causal_stress,iallgather,P=2,order=0,max_abs=1.93807e-06,repetitions=3
+causal_stress,ring,P=2,order=0,max_abs=1.93807e-06,repetitions=3
+causal_stress,overlap,P=2,order=0,max_abs=1.93807e-06,repetitions=3
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+causal_stress,rma_get,P=2,order=0,max_abs=1.93807e-06,repetitions=3
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+causal_stress,rma_get,P=2,order=1,max_abs=1.93807e-06,repetitions=3
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+causal_stress,rma_get,P=2,order=2,max_abs=1.93807e-06,repetitions=3
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+causal_stress,rma_put,P=2,order=0,max_abs=1.93807e-06,repetitions=3
+causal_stress,local,P=2,order=0,max_abs=1.93807e-06,repetitions=3
+zigzag_causal,allgather,P=2,order=0,max_abs=1.00713e-07,repetitions=3
+zigzag_causal,iallgather,P=2,order=0,max_abs=9.38227e-08,repetitions=3
+zigzag_causal,ring,P=2,order=0,max_abs=9.38227e-08,repetitions=3
+zigzag_causal,overlap,P=2,order=0,max_abs=9.38227e-08,repetitions=3
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+zigzag_causal,rma_get,P=2,order=0,max_abs=9.38227e-08,repetitions=3
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+zigzag_causal,rma_get,P=2,order=1,max_abs=1.00713e-07,repetitions=3
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+zigzag_causal,rma_get,P=2,order=2,max_abs=9.38227e-08,repetitions=3
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+zigzag_causal,rma_put,P=2,order=0,max_abs=9.38227e-08,repetitions=3
+zigzag_causal,local,P=2,order=0,max_abs=9.38227e-08,repetitions=3
+window,allgather,P=2,order=0,max_abs=6.23256e-08,repetitions=3
+window,iallgather,P=2,order=0,max_abs=6.23256e-08,repetitions=3
+window,ring,P=2,order=0,max_abs=6.23256e-08,repetitions=3
+window,overlap,P=2,order=0,max_abs=6.23256e-08,repetitions=3
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+window,rma_get,P=2,order=0,max_abs=6.23256e-08,repetitions=3
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+window,rma_get,P=2,order=1,max_abs=6.23256e-08,repetitions=3
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+window,rma_get,P=2,order=2,max_abs=6.23256e-08,repetitions=3
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+window,rma_put,P=2,order=0,max_abs=6.23256e-08,repetitions=3
+window,local,P=2,order=0,max_abs=6.23256e-08,repetitions=3
+sink_window,allgather,P=2,order=0,max_abs=8.36831e-08,repetitions=3
+sink_window,iallgather,P=2,order=0,max_abs=8.36831e-08,repetitions=3
+sink_window,ring,P=2,order=0,max_abs=8.36831e-08,repetitions=3
+sink_window,overlap,P=2,order=0,max_abs=8.36831e-08,repetitions=3
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+sink_window,rma_get,P=2,order=0,max_abs=8.36831e-08,repetitions=3
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+sink_window,rma_get,P=2,order=1,max_abs=8.36831e-08,repetitions=3
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+sink_window,rma_get,P=2,order=2,max_abs=8.36831e-08,repetitions=3
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+sink_window,rma_put,P=2,order=0,max_abs=8.36831e-08,repetitions=3
+sink_window,local,P=2,order=0,max_abs=8.36831e-08,repetitions=3
+empty_shards,allgather,P=2,order=0,max_abs=9.93396e-09,repetitions=3
+empty_shards,iallgather,P=2,order=0,max_abs=9.93396e-09,repetitions=3
+empty_shards,ring,P=2,order=0,max_abs=9.93396e-09,repetitions=3
+empty_shards,overlap,P=2,order=0,max_abs=9.93396e-09,repetitions=3
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+empty_shards,rma_get,P=2,order=0,max_abs=9.93396e-09,repetitions=3
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+empty_shards,rma_get,P=2,order=1,max_abs=9.93396e-09,repetitions=3
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+empty_shards,rma_get,P=2,order=2,max_abs=9.93396e-09,repetitions=3
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+empty_shards,rma_put,P=2,order=0,max_abs=9.93396e-09,repetitions=3
+empty_shards,local,P=2,order=0,max_abs=9.93396e-09,repetitions=3
+N1000_tail,allgather,P=2,order=0,max_abs=5.08811e-08,repetitions=3
+N1000_tail,iallgather,P=2,order=0,max_abs=6.40475e-08,repetitions=3
+N1000_tail,ring,P=2,order=0,max_abs=6.40475e-08,repetitions=3
+N1000_tail,overlap,P=2,order=0,max_abs=6.40475e-08,repetitions=3
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+N1000_tail,rma_get,P=2,order=0,max_abs=6.40475e-08,repetitions=3
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+N1000_tail,rma_get,P=2,order=1,max_abs=5.08811e-08,repetitions=3
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+N1000_tail,rma_get,P=2,order=2,max_abs=6.40475e-08,repetitions=3
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+N1000_tail,rma_put,P=2,order=0,max_abs=6.40475e-08,repetitions=3
+N1000_tail,local,P=2,order=0,max_abs=6.40475e-08,repetitions=3
+boundary_keys,sensitivity,P=2,smallest_change=0.223951,required=0.001
+boundary_keys,allgather,P=2,order=0,max_abs=7.00582e-07,repetitions=3
+boundary_keys,iallgather,P=2,order=0,max_abs=7.00582e-07,repetitions=3
+boundary_keys,ring,P=2,order=0,max_abs=7.00582e-07,repetitions=3
+boundary_keys,overlap,P=2,order=0,max_abs=7.00582e-07,repetitions=3
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+boundary_keys,rma_get,P=2,order=0,max_abs=7.00582e-07,repetitions=3
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+boundary_keys,rma_get,P=2,order=1,max_abs=7.00582e-07,repetitions=3
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+boundary_keys,rma_get,P=2,order=2,max_abs=7.00582e-07,repetitions=3
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+boundary_keys,rma_put,P=2,order=0,max_abs=7.00582e-07,repetitions=3
+boundary_keys,local,P=2,order=0,max_abs=7.00582e-07,repetitions=3
+boundary_keys_zigzag,sensitivity,P=2,smallest_change=0.139321,required=0.001
+boundary_keys_zigzag,allgather,P=2,order=0,max_abs=4.30246e-07,repetitions=3
+boundary_keys_zigzag,iallgather,P=2,order=0,max_abs=4.19432e-07,repetitions=3
+boundary_keys_zigzag,ring,P=2,order=0,max_abs=4.19432e-07,repetitions=3
+boundary_keys_zigzag,overlap,P=2,order=0,max_abs=4.19432e-07,repetitions=3
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+boundary_keys_zigzag,rma_get,P=2,order=0,max_abs=4.19432e-07,repetitions=3
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+boundary_keys_zigzag,rma_get,P=2,order=1,max_abs=4.30246e-07,repetitions=3
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+boundary_keys_zigzag,rma_get,P=2,order=2,max_abs=4.19432e-07,repetitions=3
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+boundary_keys_zigzag,rma_put,P=2,order=0,max_abs=4.19432e-07,repetitions=3
+boundary_keys_zigzag,local,P=2,order=0,max_abs=4.19432e-07,repetitions=3
+boundary_keys_causal,sensitivity,P=2,smallest_change=0.292985,required=0.001
+boundary_keys_causal,allgather,P=2,order=0,max_abs=6.06645e-07,repetitions=3
+boundary_keys_causal,iallgather,P=2,order=0,max_abs=5.95733e-07,repetitions=3
+boundary_keys_causal,ring,P=2,order=0,max_abs=5.95733e-07,repetitions=3
+boundary_keys_causal,overlap,P=2,order=0,max_abs=5.95733e-07,repetitions=3
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+boundary_keys_causal,rma_get,P=2,order=0,max_abs=5.95733e-07,repetitions=3
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+boundary_keys_causal,rma_get,P=2,order=1,max_abs=6.06645e-07,repetitions=3
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+boundary_keys_causal,rma_get,P=2,order=2,max_abs=5.95733e-07,repetitions=3
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+boundary_keys_causal,rma_put,P=2,order=0,max_abs=5.95733e-07,repetitions=3
+boundary_keys_causal,local,P=2,order=0,max_abs=5.95733e-07,repetitions=3
+boundary_keys_causal_zigzag,sensitivity,P=2,smallest_change=0.171776,required=0.001
+boundary_keys_causal_zigzag,allgather,P=2,order=0,max_abs=5.65931e-07,repetitions=3
+boundary_keys_causal_zigzag,iallgather,P=2,order=0,max_abs=5.19559e-07,repetitions=3
+boundary_keys_causal_zigzag,ring,P=2,order=0,max_abs=5.19559e-07,repetitions=3
+boundary_keys_causal_zigzag,overlap,P=2,order=0,max_abs=5.19559e-07,repetitions=3
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+boundary_keys_causal_zigzag,rma_get,P=2,order=0,max_abs=5.19559e-07,repetitions=3
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+boundary_keys_causal_zigzag,rma_get,P=2,order=1,max_abs=5.65931e-07,repetitions=3
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+boundary_keys_causal_zigzag,rma_get,P=2,order=2,max_abs=5.19559e-07,repetitions=3
+[CN-064:2287105] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+[CN-064:2287106] osc_ucx_component.c:369  Error: OSC UCX component priority set inside component query failed 
+ 
+boundary_keys_causal_zigzag,rma_put,P=2,order=0,max_abs=5.19559e-07,repetitions=3
+boundary_keys_causal_zigzag,local,P=2,order=0,max_abs=5.19559e-07,repetitions=3
