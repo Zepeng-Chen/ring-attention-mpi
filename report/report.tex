@@ -159,7 +159,8 @@ in Lecture~8.
 \paragraph{Heads.} Real models run $H$ independent copies of \cref{eq:attention},
 called \term{heads}, each with its own $q$, $k$ and $v$. In \term{multi-head
 attention} (MHA) every head has its own keys and values. In \term{grouped-query
-attention} (GQA) only $H_{kv}<H$ key/value heads exist and $G=H/H_{kv}$ query heads
+attention} (GQA)~\cite{gqa}, which the language model of \cref{sec:real} uses,
+only $H_{kv}<H$ key/value heads exist and $G=H/H_{kv}$ query heads
 share each of them; query head $h$ reads key/value head $\lfloor h/G\rfloor$. GQA
 matters here because it shrinks exactly the data that has to move between ranks.
 
@@ -413,6 +414,9 @@ IPDPS 2013, pp.~1075--1084.
 \url{https://images.nvidia.com/content/Solutions/data-center/a40/nvidia-a40-datasheet.pdf}.
 \bibitem{megatroncp} NVIDIA. \emph{Megatron-Core developer guide: Context
 Parallelism}. \url{https://docs.nvidia.com/megatron-core/developer-guide/latest/user-guide/features/context_parallel.html}.
+\bibitem{gqa} J. Ainslie, J. Lee-Thorp, M. de Jong, Y. Zemlyanskiy, F. Lebr\'on and
+S. Sanghai. \emph{GQA: Training Generalized Multi-Query Transformer Models from
+Multi-Head Checkpoints}. 2023. \url{https://arxiv.org/abs/2305.13245}.
 \bibitem{qwen} Qwen Team. \emph{Qwen2.5-0.5B} model card. 2024.
 \url{https://huggingface.co/Qwen/Qwen2.5-0.5B}.
 \bibitem{streaming} G. Xiao, Y. Tian, B. Chen, S. Han and M. Lewis. \emph{Efficient

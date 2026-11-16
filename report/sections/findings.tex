@@ -18,7 +18,7 @@ Causal mask & A contiguous partition wastes the saving; zigzag balances the work
 Ring, contiguous: \n{causal.ratio.overlap.contiguous.72} of the unmasked time; zigzag: \n{causal.ratio.overlap.zigzag.72}. The one-sided pull halves the traffic only for the unbalanced partition, which makes that partition the faster one for the pull across nodes (\cref{sec:causal}).\\
 Threads and GPUs & A faster local kernel makes communication visible at larger $c$. &
 Threads: at equal rows per rank, ranks of 18 threads lose \n{fat.loss.pct.c2304}\% where thin ranks lose \n{fat.thin.loss.pct.c2304}\%; on 288 cores \n{hybrid.best.ranks.288} ranks $\times$ \n{hybrid.best.threads.288} threads is \n{hybrid.gain.pct.288}\% faster than 288 thin ranks. GPUs: one A40 equals about \n{gpu.equiv.cores} loaded cores; two reach a speedup of \n{gpu2.two.S.host.overlap.N131072} at $N=131{,}072$ across two nodes and \n{gpu2.two.S.host.overlap.N4096} at $N=4{,}096$, where the exchange dominates (\cref{sec:collapse,sec:hybrid,sec:gpu,sec:gpuring}).\\
-Real model tensors & Same code, same accuracy; GQA moves $G=7$ times fewer bytes. &
+Real model tensors & Same code, same accuracy; grouped-query attention (GQA: $G=7$ query heads share one key/value head) moves seven times fewer bytes. &
 Agreement with PyTorch to $\n{real.err.torch.max}$ of the output scale. Bytes ratio \n{gqa.bytes.ratio.N32768.P72}, but GQA also speeds up the kernel itself (\n{gqa.gain.pct.local.N32768.P72}\% without any communication). In a replay of single layers, a window of 1{,}024 tokens changes the attention output of the last layer by \n{real.err_w.layer23.1024}\% (\cref{sec:real}).\\
 \bottomrule
 \end{tabularx}
